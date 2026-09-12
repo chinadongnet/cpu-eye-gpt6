@@ -2,6 +2,8 @@
 
 可静态部署的 CPU 教学可视化网页。编写 C++ 子集程序，通过编译、单步和连续运行观察指令、寄存器、内存和数据通路。
 
+**在线体验：[CPU 观测站](https://chinadongnet.github.io/cpu-eye-gpt6/)**
+
 ## 本地启动
 
 环境：Node.js 20.19+ 或 22.12+，npm。
@@ -101,6 +103,12 @@ npm run test:e2e
 已有 Chrome / Edge 时，也可设置环境变量 `PLAYWRIGHT_CHANNEL=chrome` 或 `msedge` 使用本机浏览器，免下载 Chromium。
 
 ## 网页部署
+
+本仓库已配置 GitHub Pages 自动部署：推送到 `main` 后，`.github/workflows/deploy-pages.yml` 自动安装依赖、运行引擎测试、构建并发布网页。也可在 GitHub Actions 的 **Deploy GitHub Pages** 页面手动触发。部署记录可在仓库的 Actions 页面查看。
+
+在线地址：<https://chinadongnet.github.io/cpu-eye-gpt6/>。
+
+本地构建与预览：
 
 ```bash
 npm run build
