@@ -7,8 +7,11 @@ export const architectures: Record<Architecture, { label: string; bits: number; 
 };
 
 type Token = { value: string; line: number };
+type Access = 'public' | 'private' | 'protected';
+type Field = { name: string; size: number; access: Access; line: number };
+type ClassDefinition = { name: string; fields: Field[] };
 type Expr = { kind: 'number'; value: number; line: number } | { kind: 'variable'; name: string; index?: Expr; line: number } | { kind: 'binary'; op: string; left: Expr; right: Expr; line: number } | { kind: 'unary'; op: string; value: Expr; line: number };
-type Statement = { kind: 'block'; body: Statement[]; line: number } | { kind: 'declare'; name: string; size: number; values: Expr[]; line: number } | { kind: 'assign'; target: Extract<Expr, { kind: 'variable' }>; value: Expr; op: string; line: number } | { kind: 'if'; condition: Expr; yes: Statement; no?: Statement; line: number } | { kind: 'while'; condition: Expr; body: Statement; line: number } | { kind: 'for'; init: Statement; condition: Expr; update: Statement; body: Statement; line: number } | { kind: 'return'; value: Expr; line: number } | { kind: 'print'; values: Expr[]; line: number };
+type Statement = { kind: 'block'; body: Statement[]; line: number } | { kind: 'declare'; name: string; size: number; values: Expr[]; line: number } | { kind: 'object'; name: string; definition: ClassDefinition; line: number } | { kind: 'assign'; target: Extract<Expr, { kind: 'variable' }>; value: Expr; op: string; line: number } | { kind: 'if'; condition: Expr; yes: Statement; no?: Statement; line: number } | { kind: 'while'; condition: Expr; body: Statement; line: number } | { kind: 'for'; init: Statement; condition: Expr; update: Statement; body: Statement; line: number } | { kind: 'return'; value: Expr; line: number } | { kind: 'print'; values: Expr[]; line: number };
 export type Instruction = { op: 'CONST' | 'LOAD' | 'STORE' | 'BINARY' | 'UNARY' | 'JZ' | 'JMP' | 'PRINT' | 'HALT'; line: number; value?: number; name?: string; operator?: string; target?: number; indexed?: boolean };
 export type Variable = { name: string; size: number; address: number };
 export type Program = { instructions: Instruction[]; variables: Variable[]; source: string };
@@ -25,7 +28,7 @@ function tokenize(source: string): Token[] {
       if (end === -1) throw new Error(`第 ${line} 行：注释未结束`);
       line += (source.slice(i, end + 2).match(/\n/g) || []).length; i = end + 2; continue;
     }
-    const match = source.slice(i).match(/^(0[xX][\da-fA-F]+|\d+|[A-Za-z_]\w*|==|!=|<=|>=|\+\+|--|\+=|-=|\*=|\/=|&&|\|\||<<|>>|::|[{}()[\];,+\-*/%<>=!&|^~])/);
+    const match = source.slice(i).match(/^(0[xX][\da-fA-F]+|\d+|[A-Za-z_]\w*|==|!=|<=|>=|\+\+|--|\+=|-=|\*=|\/=|&&|\|\||<<|>>|::|[{}()[\];,.:+\-*/%<>=!&|^~])/);
     if (!match) throw new Error(`第 ${line} 行：不支持的字符 “${c}”`);
     tokens.push({ value: match[0], line }); i += match[0].length;
   }
@@ -35,6 +38,7 @@ function tokenize(source: string): Token[] {
 
 class Parser {
   private pos = 0;
+  private classes = new Map<string, ClassDefinition>();
   constructor(private tokens: Token[]) {}
   private get token() { return this.tokens[this.pos]; }
   private is(value: string) { return this.token.value === value; }
@@ -44,9 +48,49 @@ class Parser {
   private fail(message: string): never { throw new Error(`第 ${this.token.line} 行：${message}`); }
   private identifier() { const token = this.take(); if (!/^[A-Za-z_]\w*$/.test(token.value)) this.fail('需要变量名'); return token.value; }
   parse(): Statement {
-    if (this.accept('using')) { this.expect('namespace'); this.expect('std'); this.expect(';'); }
+    while (this.is('using') || this.is('class') || this.is('struct')) {
+      if (this.accept('using')) { this.expect('namespace'); this.expect('std'); this.expect(';'); }
+      else this.classDefinition();
+    }
     this.expect('int'); this.expect('main'); this.expect('('); this.accept('void'); this.expect(')');
     const body = this.block(); this.expect('<eof>'); return body;
+  }
+  private arraySize() {
+    if (!this.accept('[')) return 1;
+    const token = this.take(), size = Number(token.value);
+    if (!Number.isInteger(size) || size < 1 || size > 128) this.fail('数组长度须为 1–128 的整数字面量');
+    this.expect(']'); return size;
+  }
+  private classDefinition() {
+    const kind = this.take().value, name = this.identifier();
+    if (this.classes.has(name)) this.fail(`重复的类定义：${name}`);
+    if (this.is(':')) this.fail('教学子集暂不支持类继承');
+    this.expect('{');
+    let access: Access = kind === 'struct' ? 'public' : 'private';
+    const fields: Field[] = [];
+    while (!this.is('}')) {
+      if (this.is('<eof>')) this.fail('类定义缺少右花括号');
+      if (['public', 'private', 'protected'].includes(this.token.value)) { access = this.take().value as Access; this.expect(':'); continue; }
+      if (!this.accept('int') && !this.accept('bool')) this.fail('类中仅支持 int / bool 数据成员，暂不支持构造函数、成员函数或嵌套对象');
+      do {
+        const line = this.token.line, fieldName = this.identifier();
+        if (fields.some(field => field.name === fieldName)) this.fail(`重复的成员名：${name}.${fieldName}`);
+        const size = this.arraySize();
+        if (this.is('(')) this.fail('教学子集暂不支持成员函数');
+        if (this.is('=') || this.is('{')) this.fail('教学子集暂不支持类内成员初始化，请在对象声明后赋值');
+        fields.push({ name: fieldName, size, access, line });
+      } while (this.accept(','));
+      this.expect(';');
+    }
+    this.expect('}'); this.expect(';'); this.classes.set(name, { name, fields });
+  }
+  private variable(name: string, line: number): Extract<Expr, { kind: 'variable' }> {
+    if (this.accept('.')) name += `.${this.identifier()}`;
+    let index: Expr | undefined;
+    if (this.accept('[')) { index = this.expression(); this.expect(']'); }
+    if (this.is('.')) this.fail('教学子集暂不支持嵌套成员或对象数组访问');
+    if (this.is('(')) this.fail('教学子集暂不支持函数或成员函数调用');
+    return { kind: 'variable', name, index, line };
   }
   private block(): Statement {
     const line = this.token.line; this.expect('{'); const body: Statement[] = [];
@@ -78,13 +122,15 @@ class Parser {
   }
   private simple(): Statement {
     const line = this.token.line;
+    const definition = this.classes.get(this.token.value);
+    if (definition) {
+      this.take(); const name = this.identifier();
+      if (this.accept('{')) this.expect('}');
+      if (['=', '(', '[', ','].includes(this.token.value)) this.fail('对象声明支持 Type name; 或 Type name{};，暂不支持对象复制、构造参数或对象数组');
+      return { kind: 'object', name, definition, line };
+    }
     if (this.accept('int') || this.accept('bool')) {
-      const name = this.identifier(); let size = 1; const values: Expr[] = [];
-      if (this.accept('[')) {
-        const token = this.take(); size = Number(token.value);
-        if (!Number.isInteger(size) || size < 1 || size > 128) this.fail('数组长度须为 1–128 的整数字面量');
-        this.expect(']');
-      }
+      const name = this.identifier(), size = this.arraySize(); const values: Expr[] = [];
       if (this.accept('=')) {
         if (this.accept('{')) { if (!this.is('}')) { do { values.push(this.expression()); } while (this.accept(',')); } this.expect('}'); }
         else values.push(this.expression());
@@ -92,9 +138,7 @@ class Parser {
       if (values.length > size) this.fail('数组初始化值过多');
       return { kind: 'declare', name, size, values, line };
     }
-    const name = this.identifier(); let index: Expr | undefined;
-    if (this.accept('[')) { index = this.expression(); this.expect(']'); }
-    const target: Extract<Expr, { kind: 'variable' }> = { kind: 'variable', name, index, line };
+    const target = this.variable(this.identifier(), line);
     const op = this.take().value;
     if (op === '++' || op === '--') return { kind: 'assign', target, op: op === '++' ? '+=' : '-=', value: { kind: 'number', value: 1, line }, line };
     if (!['=', '+=', '-=', '*=', '/='].includes(op)) this.fail(`不支持的赋值运算 ${op}`);
@@ -110,7 +154,7 @@ class Parser {
     }
     else if (/^[A-Za-z_]\w*$/.test(token.value)) {
       if (token.value === 'true' || token.value === 'false') left = { kind: 'number', value: Number(token.value === 'true'), line: token.line };
-      else { let index: Expr | undefined; if (this.accept('[')) { index = this.expression(); this.expect(']'); } left = { kind: 'variable', name: token.value, index, line: token.line }; }
+      else left = this.variable(token.value, token.line);
     } else this.fail(`无效表达式 “${token.value}”`);
     const precedence: Record<string, number> = { '||': 1, '&&': 2, '|': 3, '^': 4, '&': 5, '==': 6, '!=': 6, '<': 7, '>': 7, '<=': 7, '>=': 7, '<<': 8, '>>': 8, '+': 9, '-': 9, '*': 10, '/': 10, '%': 10 };
     while (precedence[this.token.value] !== undefined && precedence[this.token.value] >= min) {
@@ -128,8 +172,19 @@ export function compile(source: string): Program {
   const ast = new Parser(tokenize(source)).parse();
   const instructions: Instruction[] = [], variables: Variable[] = [];
   const symbols = new Map<string, Variable>(); let address = 0x1000;
+  const objects = new Map<string, ClassDefinition>();
   const emit = (instruction: Instruction) => { instructions.push(instruction); return instructions.length - 1; };
-  const check = (name: string, line: number) => { if (!symbols.has(name)) throw new Error(`第 ${line} 行：变量 ${name} 未声明`); };
+  const check = (name: string, line: number) => {
+    if (objects.has(name)) throw new Error(`第 ${line} 行：对象 ${name} 不能作为整数使用，请访问具体成员`);
+    if (name.includes('.')) {
+      const [objectName, fieldName] = name.split('.'), definition = objects.get(objectName);
+      if (!definition) throw new Error(`第 ${line} 行：${symbols.has(objectName) ? `${objectName} 不是类对象` : `对象 ${objectName} 未声明`}`);
+      const field = definition.fields.find(item => item.name === fieldName);
+      if (!field) throw new Error(`第 ${line} 行：类 ${definition.name} 没有成员 ${fieldName}`);
+      if (field.access !== 'public') throw new Error(`第 ${line} 行：成员 ${name} 为 ${field.access}，不能在 main 中访问`);
+    }
+    if (!symbols.has(name)) throw new Error(`第 ${line} 行：变量 ${name} 未声明`);
+  };
   const expression = (expr: Expr): void => {
     const line = expr.line;
     if (expr.kind === 'number') emit({ op: 'CONST', value: expr.value, line });
@@ -151,12 +206,23 @@ export function compile(source: string): Program {
     switch (stmt.kind) {
       case 'block': stmt.body.forEach(statement); break;
       case 'declare': {
-        if (symbols.has(stmt.name)) throw new Error(`第 ${line} 行：教学子集不支持同名变量或变量遮蔽：${stmt.name}`);
+        if (symbols.has(stmt.name) || objects.has(stmt.name)) throw new Error(`第 ${line} 行：教学子集不支持同名变量或变量遮蔽：${stmt.name}`);
         if (address + stmt.size * 4 > 0x2000) throw new Error('变量内存超过 4 KiB');
         const variable = { name: stmt.name, size: stmt.size, address }; symbols.set(stmt.name, variable); variables.push(variable); address += stmt.size * 4;
         for (let i = 0; i < stmt.size; i++) {
           if (stmt.size > 1) emit({ op: 'CONST', value: i, line });
           expression(stmt.values[i] || { kind: 'number', value: 0, line }); emit({ op: 'STORE', name: stmt.name, indexed: stmt.size > 1, line });
+        }
+        break;
+      }
+      case 'object': {
+        if (symbols.has(stmt.name) || objects.has(stmt.name)) throw new Error(`第 ${line} 行：教学子集不支持同名变量或变量遮蔽：${stmt.name}`);
+        objects.set(stmt.name, stmt.definition);
+        // Flatten fields in declaration order so existing memory views and IR retain member names.
+        for (const field of stmt.definition.fields) statement({ kind: 'declare', name: `${stmt.name}.${field.name}`, size: field.size, values: [], line });
+        if (!stmt.definition.fields.length) {
+          if (address + 4 > 0x2000) throw new Error('变量内存超过 4 KiB');
+          address += 4;
         }
         break;
       }
