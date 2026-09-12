@@ -1,0 +1,95 @@
+.cpu-diagram-panel { margin-bottom: 18px; }
+.diagram-caption, .diagram-footer { display: flex; justify-content: space-between; gap: 16px; padding: 11px 16px; font-size: 10px; color: #8596a9; }
+.diagram-caption > span:first-child { display: flex; align-items: center; gap: 8px; }
+.diagram-caption > span:last-child { font-size: 9px; white-space: nowrap; }
+.diagram-step { color: #a5c6ad; font: 10px var(--mono); }
+.diagram-scroll { overflow-x: auto; padding: 8px 16px 17px; background: radial-gradient(#73879b18 1px, transparent 1px); background-size: 16px 16px; }
+.diagram-board { display: grid; grid-template-columns: minmax(215px, 1fr) 36px minmax(410px, 1.65fr) 36px minmax(190px, .85fr); min-width: 950px; align-items: center; }
+.diagram-memory { border: 1px solid #364454; border-radius: 8px; background: #151c25; padding: 13px 10px; min-width: 0; }
+.diagram-box-title { color: #c7d7e8; font-size: 11px; font-weight: 550; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.diagram-box-title small { font: 8px var(--mono); color: #6e829a; }
+.diagram-table-heading { display: flex; gap: 26px; margin: 17px 0 6px; color: #698199; font-size: 8px; }
+.diagram-rom-row { display: grid; grid-template-columns: 85px minmax(0, 1fr) 15px; gap: 4px; padding: 10px 3px; border-bottom: 1px solid #253140; border-left: 2px solid transparent; }
+.diagram-rom-row code { font: 9px var(--mono); color: #9db4ce; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diagram-rom-row small { font: 8px var(--mono); color: #badcc5; }
+.diagram-rom-row.latched { background: #a6e9b012; border-left-color: #a6e9b0; }
+.diagram-rom-row.next { border-left-color: #86b9ed; background: #86b9ed0a; }
+.diagram-next { padding: 12px 0; display: flex; flex-direction: column; gap: 6px; }
+.diagram-next span { font-size: 9px; color: #789abf; }
+.diagram-next code { font: 9px/1.7 var(--mono); color: #b2c7dd; overflow-wrap: anywhere; }
+.isa-title { padding-top: 10px; border-top: 1px solid #2f3b4b; }
+.diagram-isa { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.diagram-isa span { border: 1px solid #354456; border-radius: 3px; padding: 4px 5px; font: 8px var(--mono); color: #8ca0b8; }
+.diagram-isa .selected { color: #bcedc3; border-color: #76997a; background: #a6e9b012; }
+.diagram-chip { border: 2px solid #55745c; border-radius: 12px; background: linear-gradient(140deg, #202e29, #19242c 60%); padding: 15px; position: relative; box-shadow: 0 0 30px #a6e9b006, inset 0 0 20px #a6e9b004; }
+.chip-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 8px; }
+.chip-heading > span { display: flex; align-items: center; gap: 8px; font: 12px var(--mono); color: #b6d9bf; }
+.chip-heading > small { color: #718d7c; font-size: 8px; }
+.chip-control-row, .chip-execution-row { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1.3fr); align-items: stretch; }
+.chip-module { background: #17212a; border: 1px solid #3c4e5d; border-radius: 6px; padding: 10px; min-width: 0; transition: border-color .15s, background .15s; }
+.chip-module label, .chip-memory-interface label { display: block; font-size: 8px; color: #90a6bd; margin-bottom: 9px; }
+.chip-module strong { display: block; font: 11px/1.7 var(--mono); color: #d3e6da; overflow-wrap: anywhere; }
+.chip-module small { display: block; margin-top: 6px; font: 8px/1.5 var(--mono); color: #748e9e; }
+.chip-module.active { border-color: #8bbe95; background: #a6e9b00c; }
+.ir-module strong { color: #b2cfe9; font-size: 10px; }
+.chip-connector { align-self: center; text-align: center; color: #567463; font-size: 20px; }
+.chip-connector.active { color: #a6e9b0; }
+.chip-down { color: #587567; text-align: center; height: 26px; line-height: 26px; }
+.chip-down span { font-size: 8px; color: #839c93; padding-left: 5px; }
+.chip-down.active { color: #b8e9c0; }
+.control-wire.active { color: #c5a6e0; }
+.chip-decoder { border: 1px dashed #5c506f; border-radius: 5px; padding: 9px; color: #c1b2d5; font-size: 9px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.chip-decoder > div { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip-decoder > div > span { font-size: 8px; color: #7e7791; padding: 4px; border-radius: 3px; }
+.chip-decoder .selected { color: #ddc2f6; background: #c4a1ed17; }
+.chip-registers > div { display: flex; justify-content: space-between; font: 10px/23px var(--mono); color: #8098b3; border-bottom: 1px solid #2b3842; }
+.chip-registers code { font-family: var(--mono); color: #bdcddd; }
+.chip-registers .changed-value, .chip-registers .changed-value code { color: #b7eac0; }
+.chip-alu { text-align: center; }
+.alu-operand { display: flex; justify-content: center; gap: 10px; font: 10px var(--mono); color: #7e94a7; margin-top: 16px; }
+.alu-operand code { color: #cae3d1; }
+.alu-symbol { clip-path: polygon(0 0, 40% 0, 50% 20%, 60% 0, 100% 0, 77% 100%, 23% 100%); background: #a6e9b018; color: #abd5b4; width: 100px; height: 44px; margin: 10px auto; padding-top: 10px; font: 20px var(--mono); }
+.chip-memory-interface { display: grid; grid-template-columns: 1fr 1.25fr auto; gap: 9px; align-items: center; border: 1px solid #3a4e5d; border-radius: 5px; padding: 10px; background: #17222b; }
+.chip-memory-interface.active { border-color: #80a988; }
+.chip-memory-interface code { font: 9px var(--mono); color: #b9d1df; overflow-wrap: anywhere; }
+.chip-memory-interface > span { font: 8px var(--mono); color: #a8c8b1; }
+.chip-memory-interface label { font-size: 7px; margin-bottom: 5px; }
+.chip-branch { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; color: #8c87a4; font-size: 9px; }
+.chip-branch code { font: 8px/1.6 var(--mono); color: #889bab; overflow-wrap: anywhere; }
+.chip-branch.active, .chip-branch.active code { color: #d6b7f0; }
+.diagram-bus { display: flex; flex-direction: column; gap: 29px; align-items: stretch; }
+.bus-track { color: #3d5267; position: relative; height: 4px; background: currentColor; }
+.bus-track span { position: absolute; bottom: 7px; left: 0; width: 100%; text-align: center; font-size: 7px; white-space: nowrap; }
+.bus-track b { position: absolute; font-size: 24px; line-height: 5px; top: -1px; right: -1px; }
+.address-bus.active { color: #8ab7ed; }
+.data-bus.active { color: #a6e9b0; }
+.control-bus.active { color: #c5a1e5; }
+.diagram-running .bus-track.active { background: repeating-linear-gradient(90deg, currentColor 0 7px, transparent 7px 11px); background-size: 22px 4px; animation: bus-flow .75s linear infinite; }
+.diagram-access { display: flex; flex-direction: column; gap: 9px; margin: 15px 0 10px; border: 1px solid #33485b; padding: 11px 9px; border-radius: 5px; }
+.diagram-access > span { font-size: 9px; color: #8396aa; }
+.diagram-access > strong { font: 14px var(--mono); color: #9cb9d7; }
+.diagram-access > code { font: 9px/1.6 var(--mono); color: #829fa4; overflow-wrap: anywhere; }
+.diagram-access.active { border-color: #719978; background: #a6e9b009; }
+.diagram-access.active code, .diagram-access.active span { color: #b2d9ba; }
+.diagram-ram > div { padding: 9px 5px; border-bottom: 1px solid #2e3c4b; }
+.diagram-ram > div > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.diagram-ram > div > div + div { margin-top: 7px; }
+.diagram-ram code { font: 8px var(--mono); color: #8fa9c4; }
+.diagram-ram span { color: #9ab0bc; font: 9px var(--mono); max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
+.diagram-ram strong { font: 12px var(--mono); color: #cee2d4; }
+.diagram-ram .selected { background: #a6e9b00e; box-shadow: inset 2px 0 #a6e9b0; }
+.diagram-ram p { font-size: 10px; color: #8b9aac; }
+.diagram-memory-note { font-size: 8px; color: #61788d; line-height: 1.8; margin-top: 10px; }
+.diagram-io { border-top: 1px solid #354556; padding-top: 12px; margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
+.diagram-io span { font: 8px var(--mono); color: #788c9d; }
+.diagram-io code { font: 10px var(--mono); color: #b8d7c0; overflow-wrap: anywhere; }
+.diagram-footer { border-top: 1px solid #2c3843; font-size: 9px; line-height: 1.6; }
+.diagram-footer > span:first-child { color: #a3bba9; }
+.diagram-expanded { position: fixed; inset: 16px; z-index: 45; margin: 0; display: flex; flex-direction: column; box-shadow: 0 0 0 30px #0b1119e8; }
+.diagram-expanded .diagram-scroll { flex: 1; display: flex; align-items: center; }
+.diagram-expanded .diagram-board { width: 100%; }
+@keyframes bus-flow { to { background-position: 22px 0; } }
+@media (min-width: 1600px) { .diagram-board { grid-template-columns: minmax(260px, 1fr) 55px minmax(470px, 1.65fr) 55px minmax(220px, .85fr); } .diagram-rom-row code { font-size: 10px; } }
+@media (max-width: 1050px) { .diagram-caption { flex-direction: column; gap: 8px; } .diagram-footer { flex-wrap: wrap; } }
+@media (max-width: 700px) { .diagram-caption, .diagram-footer { padding: 10px; font-size: 9px; } .diagram-caption > span:last-child { font-size: 8px; white-space: normal; } .diagram-scroll { padding: 8px 10px 14px; } .diagram-step { display: none; } .cpu-diagram-panel .panel-header { padding: 0 10px; } .cpu-diagram-panel .panel-title { gap: 6px; } .cpu-diagram-panel .subtle-tag { font-size: 7px; } .diagram-expanded { inset: 7px; } }
+@media (prefers-reduced-motion: reduce) { .diagram-running .bus-track.active { animation: none; } }

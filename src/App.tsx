@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Activity, ArrowDown, ArrowDownToLine, ArrowRight, BookOpen, Check, CheckCheck, ChevronDown, ChevronRight, CircleHelp, Code2, Cpu, FileCode2, FlaskConical, GitBranch, Layers, Maximize2, MemoryStick, Pause, Play, RotateCcw, Settings2, SkipForward, Square, Terminal, X, Zap } from 'lucide-react';
 import { architectures, compile, createMachine, hex, instructionText, step, type Architecture, type Machine } from './engine';
 import { examples, validateExample } from './examples';
+import CpuDiagram from './CpuDiagram';
 
 const initialProgram = compile(examples[0].source);
 type BottomTab = 'console' | 'trace' | 'validation';
@@ -122,6 +123,8 @@ export default function App() {
           <div className="toolbar-group"><span className="field-label">CPU 架构</span><div className="select-wrap architecture-select"><Cpu size={16} /><select aria-label="CPU 架构" value={arch} onChange={e => changeArchitecture(e.target.value as Architecture)}>{Object.entries(architectures).map(([id, item]) => <option key={id} value={id}>{item.label} · {item.bits}-bit</option>)}</select><ChevronDown size={14} /></div><span className="toolbar-separator" /><div className="select-wrap example-select"><FileCode2 size={16} /><select aria-label="示例程序" value={exampleId} onChange={e => loadExample(e.target.value)}>{examples.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select><ChevronDown size={14} /></div></div>
           <div className="toolbar-group toolbar-actions"><button className="button compile-button" onClick={build}><Zap size={15} />编译</button><button className={`button primary ${running ? 'is-running' : ''}`} onClick={play}>{running ? <Pause size={15} /> : <Play size={15} fill="currentColor" />}{running ? '暂停' : '运行'}</button><button className="button" onClick={singleStep} disabled={machine.halted && !dirty}><SkipForward size={16} />单步</button><button className="icon-button reset-button" onClick={reset} title="重置执行"><RotateCcw size={17} /></button><span className="toolbar-separator" /><div className="speed-control"><span>速度</span><select aria-label="执行速度" value={speed} onChange={e => setSpeed(Number(e.target.value))}><option value={1}>1 指令/s</option><option value={4}>4 指令/s</option><option value={12}>12 指令/s</option><option value={30}>30 指令/s</option><option value={120}>120 指令/s</option></select></div></div>
         </section>
+
+        <CpuDiagram program={program} machine={machine} running={running} dirty={dirty} />
 
         <div className={`workspace ${editorExpanded ? 'editor-expanded' : ''}`}>
           <section className="panel editor-panel">

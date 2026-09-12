@@ -251,10 +251,16 @@ export function compile(source: string): Program {
 }
 
 export type Trace = { cycle: number; pc: number; text: string; detail: string };
+export type ExecutionEvent = {
+  pc: number; nextPc: number; instruction: Instruction; operands: number[]; result?: number;
+  memory?: { address: number; name: string; index: number; value: number; direction: 'read' | 'write' };
+  branch?: { target: number; taken: boolean }; error?: string;
+};
 export type Machine = {
   arch: Architecture; pc: number; cycles: number; registers: number[]; stack: number[]; memory: Record<string, number[]>;
   flags: { Z: boolean; N: boolean; C: boolean; V: boolean }; output: number[]; halted: boolean; result?: number; error?: string;
   changedRegisters: number[]; changedMemory: string[]; trace: Trace[]; lastPc: number | null; reads: number; writes: number; branches: number;
+  execution?: ExecutionEvent;
 };
 export function createMachine(program: Program, arch: Architecture): Machine {
   return { arch, pc: 0, cycles: 0, registers: [0, 0, 0, 0, 0, 0, 0x8000, 0x8000], stack: [], memory: Object.fromEntries(program.variables.map(v => [v.name, Array(v.size).fill(0)])), flags: { Z: false, N: false, C: false, V: false }, output: [], halted: false, changedRegisters: [], changedMemory: [], trace: [], lastPc: null, reads: 0, writes: 0, branches: 0 };
@@ -285,6 +291,8 @@ export function step(program: Program, previous: Machine): Machine {
   if (!instruction) return { ...m, halted: true, error: '指令地址越界' };
   if (m.cycles >= 100000) return { ...m, halted: true, error: '执行超过 100,000 条指令，请检查循环条件' };
   const oldPc = m.pc; m.lastPc = oldPc; m.pc++; m.cycles++; let detail = '';
+  const execution: ExecutionEvent = { pc: oldPc, nextPc: m.pc, instruction, operands: [] };
+  m.execution = execution;
   const setRegister = (index: number, value: number) => { m.registers[index] = value; if (previous.registers[index] !== value) m.changedRegisters.push(index); };
   const pop = () => { const value = m.stack.pop(); if (value === undefined) throw new Error('表达式栈下溢'); return value; };
   const push = (value: number) => { const n = value | 0; m.stack.push(n); setRegister(0, n); return n; };
@@ -296,17 +304,21 @@ export function step(program: Program, previous: Machine): Machine {
   };
   try {
     switch (instruction.op) {
-      case 'CONST': push(instruction.value!); detail = `常量 ${instruction.value} → ${architectures[m.arch].registers[0]}`; break;
+      case 'CONST': execution.result = push(instruction.value!); detail = `常量 ${instruction.value} → ${architectures[m.arch].registers[0]}`; break;
       case 'LOAD': {
         const index = indexFor(instruction.name!, instruction.indexed); const value = m.memory[instruction.name!][index]; push(value); m.reads++;
-        setRegister(2, program.variables.find(v => v.name === instruction.name)!.address + index * 4); detail = `读取 ${instruction.name}[${index}] = ${value}`; break;
+        const address = program.variables.find(v => v.name === instruction.name)!.address + index * 4;
+        execution.memory = { address, name: instruction.name!, index, value, direction: 'read' }; execution.result = value;
+        setRegister(2, address); detail = `读取 ${instruction.name}[${index}] = ${value}`; break;
       }
       case 'STORE': {
         const value = pop(), index = indexFor(instruction.name!, instruction.indexed); m.memory[instruction.name!] = [...m.memory[instruction.name!]]; m.memory[instruction.name!][index] = value;
-        m.changedMemory.push(`${instruction.name}:${index}`); setRegister(0, value); setRegister(2, program.variables.find(v => v.name === instruction.name)!.address + index * 4); m.writes++; detail = `写入 ${instruction.name}[${index}] ← ${value}`; break;
+        const address = program.variables.find(v => v.name === instruction.name)!.address + index * 4;
+        execution.memory = { address, name: instruction.name!, index, value, direction: 'write' }; execution.operands = [value];
+        m.changedMemory.push(`${instruction.name}:${index}`); setRegister(0, value); setRegister(2, address); m.writes++; detail = `写入 ${instruction.name}[${index}] ← ${value}`; break;
       }
       case 'BINARY': {
-        const b = pop(), a = pop(); setRegister(1, b); let raw = 0;
+        const b = pop(), a = pop(); execution.operands = [a, b]; setRegister(1, b); let raw = 0;
         switch (instruction.operator) {
           case '+': raw = a + b; break; case '-': raw = a - b; break; case '*': raw = Number(BigInt.asIntN(32, BigInt(a) * BigInt(b))); break;
           case '/': if (!b) throw new Error('除数不能为 0'); raw = Math.trunc(a / b); break;
@@ -316,16 +328,17 @@ export function step(program: Program, previous: Machine): Machine {
           case '&': raw = a & b; break; case '|': raw = a | b; break; case '^': raw = a ^ b; break;
           case '<<': case '>>': if (b < 0 || b >= 32) throw new Error('移位位数须在 0–31 范围内'); raw = instruction.operator === '<<' ? a << b : a >> b; break;
         }
-        const value = push(raw); flags(value, raw); detail = `${a} ${instruction.operator} ${b} = ${value}`; break;
+        const value = push(raw); execution.result = value; flags(value, raw); detail = `${a} ${instruction.operator} ${b} = ${value}`; break;
       }
-      case 'UNARY': { const a = pop(); const value = push(instruction.operator === '-' ? -a : instruction.operator === '!' ? Number(!a) : instruction.operator === '~' ? ~a : a); flags(value); detail = `${instruction.operator}${a} = ${value}`; break; }
-      case 'JZ': { const value = pop(); flags(value); if (value === 0) { m.pc = instruction.target!; m.branches++; } detail = value === 0 ? '条件为假，跳转至目标指令' : '条件为真，继续执行'; break; }
-      case 'JMP': m.pc = instruction.target!; m.branches++; detail = '无条件跳转'; break;
-      case 'PRINT': { const value = pop(); m.output.push(value); detail = `标准输出：${value}`; break; }
-      case 'HALT': m.result = pop(); setRegister(0, m.result); m.halted = true; detail = `程序结束，返回值 ${m.result}`; break;
+      case 'UNARY': { const a = pop(); execution.operands = [a]; const value = push(instruction.operator === '-' ? -a : instruction.operator === '!' ? Number(!a) : instruction.operator === '~' ? ~a : a); execution.result = value; flags(value); detail = `${instruction.operator}${a} = ${value}`; break; }
+      case 'JZ': { const value = pop(); execution.operands = [value]; execution.branch = { target: instruction.target!, taken: value === 0 }; flags(value); if (value === 0) { m.pc = instruction.target!; m.branches++; } detail = value === 0 ? '条件为假，跳转至目标指令' : '条件为真，继续执行'; break; }
+      case 'JMP': execution.branch = { target: instruction.target!, taken: true }; m.pc = instruction.target!; m.branches++; detail = '无条件跳转'; break;
+      case 'PRINT': { const value = pop(); execution.operands = [value]; m.output.push(value); detail = `标准输出：${value}`; break; }
+      case 'HALT': m.result = pop(); execution.result = m.result; setRegister(0, m.result); m.halted = true; detail = `程序结束，返回值 ${m.result}`; break;
     }
     setRegister(7, 0x8000 - m.stack.length * (architectures[m.arch].bits / 8));
-  } catch (error) { m.error = (error as Error).message; m.halted = true; detail = m.error; }
+  } catch (error) { m.error = (error as Error).message; execution.error = m.error; m.halted = true; detail = m.error; }
+  execution.nextPc = m.pc;
   m.trace.push({ cycle: m.cycles, pc: oldPc, text: instructionText(instruction, m.arch), detail });
   if (m.trace.length > 160) m.trace.shift();
   return m;

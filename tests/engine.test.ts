@@ -156,3 +156,30 @@ test('不支持的类特性给出诊断而非静默忽略', () => {
   assert.throws(() => compile('class A {}; int main() { A a; A b = a; }'), /对象复制/);
   assert.throws(() => compile('class A { public: int x; }; int main() { A a; a.x(); }'), /函数调用/);
 });
+
+test('CPU 执行快照捕获 ALU 原始操作数、实际地址和分支决定', () => {
+  const p = compile('int main() { int data[2] = {3, 7}; int x = data[1] + 5; if (x == 12) { data[0] = x; } if (x == 0) { x = 9; } return x; }');
+  let machine = createMachine(p, 'x64');
+  const events = [];
+  while (!machine.halted) { machine = step(p, machine); events.push(machine.execution!); }
+  const load = events.find(event => event.memory?.direction === 'read' && event.memory.name === 'data')!;
+  assert.deepEqual(load.memory, { address: 0x1004, name: 'data', index: 1, value: 7, direction: 'read' });
+  const add = events.find(event => event.instruction.operator === '+')!;
+  assert.deepEqual(add.operands, [7, 5]);
+  assert.equal(add.result, 12);
+  assert.equal(add.nextPc, add.pc + 1);
+  const branches = events.filter(event => event.branch);
+  assert.equal(branches[0].branch!.taken, false);
+  assert.equal(branches[1].branch!.taken, true);
+  assert.equal(branches[1].nextPc, branches[1].branch!.target);
+  assert.equal(machine.result, 12);
+  assert.equal(createMachine(p, 'x64').execution, undefined);
+});
+
+test('CPU 异常快照不显示成功结果或残留内存访问', () => {
+  const m = run(compile('int main() { int a = 1; return a / 0; }'), 'arm32');
+  assert.deepEqual(m.execution!.operands, [1, 0]);
+  assert.equal(m.execution!.result, undefined);
+  assert.equal(m.execution!.memory, undefined);
+  assert.match(m.execution!.error!, /除数/);
+});
