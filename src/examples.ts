@@ -25,6 +25,11 @@ export const examples: Example[] = [
     source: `// 与、或、异或与移位\n#include <iostream>\n\nint main() {\n    int a = 12;\n    int b = 10;\n    int both = a & b;\n    int either = a | b;\n    int different = a ^ b;\n    int shifted = a << 2;\n    std::cout << both << either << different << shifted;\n    return 0;\n}`,
     expected: { both: 8, either: 14, different: 6, shifted: 48 }, output: [8, 14, 6, 48], result: 0,
   },
+  {
+    id: 'class-members', title: '类与对象成员', subtitle: '观察对象成员的赋值与连续内存布局', tag: '入门 · 对象与内存',
+    source: `class A{\npublic:\n    int x;\n    int y;\n};\n\nint main()\n{\n    A a;\n    a.x = 1;\n    a.y = 2;\n    return 0;\n}`,
+    expected: { 'a.x': 1, 'a.y': 2 }, output: [], result: 0,
+  },
 ];
 
 export function validateExample(example: Example, memory: Record<string, number[]>, output: number[], result?: number) {

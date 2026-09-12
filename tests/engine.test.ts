@@ -81,3 +81,78 @@ test('cout 链式表达式和普通表达式的移位优先级', () => {
   assert.equal(m.result, 9);
   assert.deepEqual(m.output, [10, 18]);
 });
+
+test('对象实例成员独立、按声明顺序分配地址，支持成员表达式和数组', () => {
+  const p = compile(`
+class A { public: int x, y; int data[2]; };
+struct B { int value; };
+int main() {
+    A a;
+    A b{};
+    B c;
+    a.x = 1;
+    a.y = 2;
+    b.x = 9;
+    a.x += a.y;
+    a.y++;
+    a.data[1] = a.x * a.y;
+    a.data[1] -= 2;
+    c.value = a.data[1];
+    if (a.x == 3 && b.x == 9) { c.value++; }
+    std::cout << a.x << b.x << c.value;
+    return c.value;
+}`);
+  for (const arch of Object.keys(architectures) as Architecture[]) {
+    const m = run(p, arch);
+    assert.equal(m.error, undefined);
+    assert.equal(m.result, 8);
+    assert.deepEqual(m.output, [3, 9, 8]);
+    assert.deepEqual(m.memory['a.data'], [0, 7]);
+    assert.deepEqual(m.memory['b.data'], [0, 0]);
+    assert.deepEqual(p.variables.map(v => v.address), [0x1000, 0x1004, 0x1008, 0x1010, 0x1014, 0x1018, 0x1020]);
+  }
+});
+
+test('对象成员写入保留源码行、快照、汇编名称和高亮键', () => {
+  const p = compile(examples.find(example => example.id === 'class-members')!.source);
+  let before = createMachine(p, 'arm64');
+  while (!(p.instructions[before.pc].op === 'STORE' && p.instructions[before.pc].line === 10)) before = step(p, before);
+  const after = step(p, before);
+  assert.deepEqual(before.memory['a.x'], [0]);
+  assert.deepEqual(after.memory['a.x'], [1]);
+  assert.deepEqual(after.changedMemory, ['a.x:0']);
+  assert.equal(after.registers[2], 0x1000);
+  assert.equal(instructionText(p.instructions[before.pc], 'arm64'), 'STR X0, [a.x]');
+});
+
+test('类与 struct 访问控制、成员查找和声明冲突有明确诊断', () => {
+  assert.throws(() => compile('class A { int x; }; int main() { A a; a.x = 1; }'), /成员 a.x 为 private/);
+  assert.throws(() => compile('struct A { protected: int x; }; int main() { A a; return a.x; }'), /成员 a.x 为 protected/);
+  assert.throws(() => compile('class A { public: int x; private: int y; }; int main() { A a; return a.y; }'), /private/);
+  assert.throws(() => compile('class A { public: int x; }; int main() { A a; return a.y; }'), /没有成员 y/);
+  assert.throws(() => compile('int main() { int a; a.x = 1; }'), /不是类对象/);
+  assert.throws(() => compile('int main() { return a.x; }'), /对象 a 未声明/);
+  assert.throws(() => compile('class A {}; int main() { A a; return a; }'), /不能作为整数/);
+  for (const declarations of ['A a; A a;', 'A a; int a;', 'int a; A a;']) {
+    assert.throws(() => compile(`class A {}; int main() { ${declarations} return 0; }`), /同名变量/);
+  }
+  assert.throws(() => compile('class A {}; class A {}; int main() {}'), /重复的类定义/);
+  assert.throws(() => compile('struct A { int x; int x; }; int main() {}'), /重复的成员名/);
+});
+
+test('成员数组越界和对象存储上限继续受检查', () => {
+  const m = run(compile('struct A { int data[2]; }; int main() { A a; a.data[2] = 7; return 0; }'), 'x64');
+  assert.match(m.error!, /数组越界：a.data\[2\]/);
+  const declarations = Array.from({ length: 9 }, (_, i) => `A a${i};`).join(' ');
+  assert.throws(() => compile(`struct A { int data[128]; }; int main() { ${declarations} }`), /4 KiB/);
+});
+
+test('不支持的类特性给出诊断而非静默忽略', () => {
+  assert.throws(() => compile('class A { public: int get() { return 1; } }; int main() {}'), /成员函数/);
+  assert.throws(() => compile('class A { public: A() {} }; int main() {}'), /构造函数/);
+  assert.throws(() => compile('class A { public: int x = 3; }; int main() {}'), /类内成员初始化/);
+  assert.throws(() => compile('class A : B {}; int main() {}'), /类继承/);
+  assert.throws(() => compile('class A {}; int main() { A a[2]; }'), /对象数组/);
+  assert.throws(() => compile('class A {}; int main() { A a; A b = a; }'), /对象复制/);
+  assert.throws(() => compile('class A { public: int x; }; int main() { A a; a.x(); }'), /函数调用/);
+});

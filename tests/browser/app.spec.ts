@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { examples } from '../../src/examples';
 
 test('编译、单步、运行、验证与模型切换', async ({ page }) => {
   const errors: string[] = [];
@@ -46,4 +47,34 @@ test('编译错误恢复、示例选择、内存与移动端布局', async ({ pa
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toBeHidden();
+});
+
+test('用户 class 示例编译运行、单步成员高亮和内存布局', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('C++ 源代码编辑器').fill(examples.find(example => example.id === 'class-members')!.source);
+  await page.getByRole('button', { name: '编译', exact: true }).click();
+  await expect(page.locator('.status-badge')).toHaveText('就绪');
+  const x = page.locator('.memory-content tr').filter({ has: page.getByRole('cell', { name: 'a.x', exact: true }) });
+  const y = page.locator('.memory-content tr').filter({ has: page.getByRole('cell', { name: 'a.y', exact: true }) });
+  for (let i = 0; i < 6; i++) await page.getByRole('button', { name: '单步', exact: true }).click();
+  await expect(x.locator('.variable-value')).toHaveText('1');
+  await expect(x).toHaveClass('memory-changed');
+  await expect(y.locator('.variable-value')).toHaveText('0');
+  await page.getByLabel('执行速度').selectOption('120');
+  await page.getByRole('button', { name: '运行', exact: true }).click();
+  await expect(page.locator('.status-badge')).toHaveText('已完成');
+  await expect(y.locator('.variable-value')).toHaveText('2');
+  await expect(page.locator('.console-content')).toContainText('返回值 0');
+  await page.getByRole('button', { name: '内存', exact: true }).click();
+  const bytes = page.locator('.byte-table tbody tr');
+  await expect(bytes.nth(0)).toContainText('0x1000');
+  await expect(bytes.nth(0).locator('.byte')).toHaveText(['01', '00', '00', '00']);
+  await expect(bytes.nth(1)).toContainText('0x1004');
+  await expect(bytes.nth(1).locator('.byte')).toHaveText(['02', '00', '00', '00']);
+  page.on('dialog', dialog => dialog.accept());
+  await page.getByLabel('示例程序').selectOption('class-members');
+  await page.getByRole('button', { name: '运行', exact: true }).click();
+  await expect(page.locator('.status-badge')).toHaveText('已完成');
+  await page.getByRole('button', { name: '结果验证', exact: true }).click();
+  await expect(page.locator('.validation-summary')).toContainText('4 / 4 项预期结果一致');
 });
