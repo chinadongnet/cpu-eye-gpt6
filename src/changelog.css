@@ -1,0 +1,11 @@
+.brand-name button.version { cursor: pointer; font: 9px var(--mono); letter-spacing: .5px; border: 1px solid #465c49; background: #a6e9b00b; color: #b2cfb7; padding: 4px 7px; border-radius: 4px; margin-left: 10px; }
+.brand-name button.version:hover { background: #a6e9b020; }
+.changelog-modal { display: flex; flex-direction: column; }
+.changelog-modal .modal-header { flex-shrink: 0; }
+.changelog-content { padding: 12px 28px 28px; overflow-y: auto; font-size: 12px; line-height: 1.9; color: #a3b1c0; }
+.changelog-content h3 { font: 15px/1.7 var(--mono); color: #bae0c2; padding: 14px 0 8px; border-bottom: 1px solid #354637; margin: 10px 0 12px; }
+.changelog-content h4 { color: #d1dde7; font-size: 12px; margin: 20px 0 9px; font-weight: 550; }
+.changelog-content p { margin: 7px 0; }
+.changelog-item { padding-left: 14px; position: relative; }
+.changelog-item::before { content: '•'; position: absolute; left: 0; color: #94bd9d; }
+@media (max-width: 700px) { .brand-name button.version { margin-left: 3px; font-size: 8px; padding: 3px 5px; } .changelog-content { padding: 10px 18px 20px; font-size: 11px; } }

@@ -4,6 +4,25 @@
 
 **在线体验：[CPU 观测站](https://chinadongnet.github.io/cpu-eye-gpt6/)**
 
+**更新记录：[CHANGELOG.md](CHANGELOG.md)**。网页顶部版本按钮与侧栏“更新”可直接查看同一份记录。
+
+## 版本与更新约定
+
+每次更新递增最小版本位（patch），例如 `1.0.1 → 1.0.2`。以最新 main 为基准，一个 PR 的多次修订共用一个版本；合并前确认没有与其他更新冲突。
+
+```bash
+npm run version:patch
+```
+
+该命令同步 package.json 与 package-lock.json，不创建提交或标签。随后在 CHANGELOG.md 顶部新增版本、实际日期和改动摘要，保留既有历史。页面直接读取 package.json 和 CHANGELOG.md，避免手工维护重复内容。
+
+```bash
+npm run check:release
+npm run build
+```
+
+构建自动检查版本一致性与更新日志。面向 main 的 PR 还会检查补丁版本恰好增加 1。提交规范见 [AGENTS.md](AGENTS.md)。
+
 ## 本地启动
 
 环境：Node.js 20.19+ 或 22.12+，npm。

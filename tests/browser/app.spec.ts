@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { examples } from '../../src/examples';
+import { createRequire } from 'node:module';
+
+const { version } = createRequire(import.meta.url)('../../package.json') as { version: string };
 
 test('编译、单步、运行、验证与模型切换', async ({ page }) => {
   const errors: string[] = [];
@@ -198,3 +201,23 @@ for (const viewport of [{ width: 1100, height: 700 }, { width: 1366, height: 768
     await expect(page.locator('.validation-summary')).toContainText('4 / 4');
   });
 }
+
+test('更新日志读取统一版本与历史，支持桌面和手机入口及关闭', async ({ page }) => {
+  await page.goto('/');
+  const versionButton = page.getByRole('button', { name: `v${version}`, exact: true });
+  await expect(versionButton).toBeVisible();
+  await versionButton.click();
+  const dialog = page.getByRole('dialog', { name: '更新日志', exact: true });
+  await expect(dialog).toContainText(`[${version}]`);
+  await expect(dialog).toContainText('单屏工作台与函数栈');
+  await expect(dialog).toContainText('基础 C++ 类支持');
+  await expect(dialog).toContainText('首版与在线部署');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(versionButton).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: '更新', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await page.getByRole('button', { name: '关闭更新日志', exact: true }).click();
+  await expect(dialog).toBeHidden();
+});
