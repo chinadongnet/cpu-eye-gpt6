@@ -1,11 +1,13 @@
 {
   "name": "cpu-observatory",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run check:release && tsc --noEmit && vite build",
+    "check:release": "node scripts/check-release.mjs",
+    "version:patch": "npm version patch --no-git-tag-version",
     "preview": "vite preview --host 0.0.0.0",
     "test": "tsx --test tests/engine.test.ts",
     "test:e2e": "playwright test"

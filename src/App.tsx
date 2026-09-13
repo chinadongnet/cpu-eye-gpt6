@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, ArrowDown, ArrowDownToLine, ArrowRight, BookOpen, Check, CheckCheck, ChevronDown, ChevronRight, CircleHelp, Code2, Cpu, FileCode2, FlaskConical, GitBranch, Layers, Maximize2, MemoryStick, Pause, Play, RotateCcw, Settings2, SkipForward, Square, Terminal, X, Zap } from 'lucide-react';
 import { architectures, compile, createMachine, hex, instructionText, step, type Architecture, type Machine } from './engine';
 import { examples, validateExample } from './examples';
 import CpuDiagram from './CpuDiagram';
+import Changelog from './Changelog';
+import { version } from '../package.json';
 
 const initialProgram = compile(examples[0].source);
 type BottomTab = 'console' | 'trace' | 'validation';
@@ -13,6 +15,8 @@ function Highlight({ line }: { line: string }) {
 }
 
 export default function App() {
+  const [showChangelog, setShowChangelog] = useState(false);
+  const closeChangelog = useCallback(() => setShowChangelog(false), []);
   const [arch, setArch] = useState<Architecture>('x64');
   const [exampleId, setExampleId] = useState('sum');
   const [source, setSource] = useState(examples[0].source);
@@ -119,13 +123,14 @@ export default function App() {
       <button className="rail-button" title="示例程序" onClick={() => setDialog('examples')}><FileCode2 size={21} /><span>示例库</span></button>
       <button className="rail-button" title="程序验证" onClick={verify}><FlaskConical size={21} /><span>验证</span></button>
       <div className="rail-spacer" />
+      <button className="rail-button" title="更新日志" onClick={() => setShowChangelog(true)}><BookOpen size={21} /><span>更新</span></button>
       <button className="rail-button" title="使用指南" onClick={() => setDialog('help')}><CircleHelp size={21} /><span>指南</span></button>
       <div className="avatar">C</div>
     </aside>
 
     <div className="main-shell">
       <header className="topbar">
-        <div className="brand-name">CPU<span>Observatory</span><span className="version">BETA 1.0</span></div>
+        <div className="brand-name">CPU<span>Observatory</span><button className="version" title="查看更新日志" onClick={() => setShowChangelog(true)}>v{version}</button></div>
         <div className="topbar-right"><span className="local-badge"><i />本地浏览器运行</span><span className="topbar-divider" /><button className="text-button" onClick={() => setDialog('help')}><BookOpen size={15} />使用指南<ArrowRight size={14} /></button></div>
       </header>
 
@@ -182,7 +187,7 @@ export default function App() {
           <section className="panel bottom-panel">
             <div className="bottom-header"><div className="bottom-tabs"><button className={bottomTab === 'console' ? 'selected' : ''} onClick={() => setBottomTab('console')}><Terminal size={15} />控制台{machine.output.length > 0 && <span className="count-badge">{machine.output.length}</span>}</button><button className={bottomTab === 'trace' ? 'selected' : ''} onClick={() => setBottomTab('trace')}><Activity size={15} />执行轨迹</button><button className={bottomTab === 'validation' ? 'selected' : ''} onClick={() => setBottomTab('validation')}><CheckCheck size={16} />结果验证{validationPassed && <i className="tiny-dot" />}</button></div><span className="bottom-header-note">{bottomTab === 'trace' ? '最近 160 条指令' : 'PROGRAM OUTPUT'}</span></div>
             <div className="console-content" aria-live="polite">
-              {bottomTab === 'console' && <><div className="console-line muted"><span className="console-time">SYSTEM</span><span>CPU Observatory v1.0 — 浏览器端教学模拟引擎</span></div><div className="console-line"><span className="console-time">BUILD</span><span className="green-text">✓</span><span>已加载 {model.label} 模型，{program.instructions.length} 条指令，{program.variables.length} 个变量</span></div>{!machine.cycles && !error && <div className="console-line muted"><span className="console-time">READY</span><span>点击「运行」开始模拟，或使用「单步」逐条观察。</span><span className="terminal-cursor" /></div>}{machine.output.map((value, i) => <div className="console-line output-line" key={i}><span className="console-time">STDOUT</span><span>{value}</span></div>)}{machine.halted && !machine.error && <div className="console-line green-text"><span className="console-time">EXIT</span><span>程序执行完成 · 返回值 {machine.result} · 共 {machine.cycles} 条指令</span></div>}{(error || machine.error) && <div className="console-line error-text"><span className="console-time">ERROR</span><span>{error || machine.error}</span></div>}</>}
+              {bottomTab === 'console' && <><div className="console-line muted"><span className="console-time">SYSTEM</span><span>CPU Observatory v{version} — 浏览器端教学模拟引擎</span></div><div className="console-line"><span className="console-time">BUILD</span><span className="green-text">✓</span><span>已加载 {model.label} 模型，{program.instructions.length} 条指令，{program.variables.length} 个变量</span></div>{!machine.cycles && !error && <div className="console-line muted"><span className="console-time">READY</span><span>点击「运行」开始模拟，或使用「单步」逐条观察。</span><span className="terminal-cursor" /></div>}{machine.output.map((value, i) => <div className="console-line output-line" key={i}><span className="console-time">STDOUT</span><span>{value}</span></div>)}{machine.halted && !machine.error && <div className="console-line green-text"><span className="console-time">EXIT</span><span>程序执行完成 · 返回值 {machine.result} · 共 {machine.cycles} 条指令</span></div>}{(error || machine.error) && <div className="console-line error-text"><span className="console-time">ERROR</span><span>{error || machine.error}</span></div>}</>}
               {bottomTab === 'trace' && (machine.trace.length ? [...machine.trace].reverse().map(item => <div className="trace-line" key={item.cycle}><span>#{String(item.cycle).padStart(4, '0')}</span><code>{item.text}</code><span>{item.detail}</span></div>) : <div className="empty-state"><Activity size={22} />开始执行后，这里会记录每一步指令和数据变化。</div>)}
               {bottomTab === 'validation' && <>{!isExample ? <div className="empty-state"><FlaskConical size={22} />自定义程序：请结合返回值、输出和变量自行验证；预期断言适用于原始示例。</div> : !machine.halted ? <div className="validation-pending"><FlaskConical size={26} /><div><strong>让每一次探索，都有答案。</strong><p>运行完成后，将自动核对示例的变量、输出与返回值。</p></div><button className="button" onClick={verify}><Play size={13} />运行验证</button></div> : <><div className={`validation-summary ${validationPassed ? 'green-text' : 'error-text'}`}>{validationPassed ? <CheckCheck size={17} /> : <X size={17} />}{validationPassed ? '验证通过' : '验证未通过'}<span>{checks.filter(item => item.pass).length} / {checks.length} 项预期结果一致</span></div><div className="validation-checks">{checks.map(item => <div key={item.label} className={item.pass ? '' : 'failed'}>{item.pass ? <Check size={13} /> : <X size={13} />}<code>{item.label}</code><span>{item.actual ?? '未定义'}</span>{!item.pass && <small>预期 {item.expected}</small>}</div>)}</div></>}</>}
             </div>
@@ -200,6 +205,7 @@ export default function App() {
     </div>
 
     {notice && <div className="toast" role="status"><Check size={16} />{notice}</div>}
+    {showChangelog && <Changelog onClose={closeChangelog} />}
     {dialog && <div className="modal-overlay" onClick={() => setDialog(null)}><section className="modal" role="dialog" aria-modal="true" aria-label={dialog === 'help' ? '使用指南' : '示例程序库'} onClick={e => e.stopPropagation()}><div className="modal-header"><div><span className="eyebrow">{dialog === 'help' ? 'A LITTLE GUIDE' : 'LEARN BY EXPLORING'}</span><h2>{dialog === 'help' ? '欢迎来到 CPU 观测站' : '选择一个好奇的起点'}</h2></div><button className="icon-button" title="关闭" onClick={() => setDialog(null)} autoFocus><X size={20} /></button></div>{dialog === 'examples' ? <div className="example-cards">{examples.map((item, index) => <button key={item.id} onClick={() => loadExample(item.id)}><span className="example-number">0{index + 1}</span><div><h3>{item.title}<span>{item.tag}</span></h3><p>{item.subtitle}</p></div><ArrowRight size={18} /></button>)}</div> : <div className="help-content"><p>将 C++ 代码变成看得见的数据流，理解一次运算如何发生。</p><ol><li><strong>选择架构与示例</strong> — 支持 x86、x86-64、ARM32 和 ARM64；切换架构会重置执行状态。</li><li><strong>编写与编译</strong> — 可直接编辑 main.cpp，点击编译或按 Ctrl / ⌘ + Enter。</li><li><strong>观察每一步</strong> — 运行、暂停或单步；绿色标记显示下一条指令，变化的寄存器和内存会高亮。</li><li><strong>验证结果</strong> — 原始示例包含结果断言，运行完成后可在「结果验证」查看。</li></ol><h3>支持的 C++ 子集</h3><p><code>int main()</code>、int / bool 声明、固定长度 int 数组、赋值和复合赋值、后置 ++ / --、算术 / 比较 / 位运算、短路逻辑、if / else、for、while、整数 cout 输出和 return。每个变量名在程序中须唯一；变量初始值默认为 0。bool 在当前教学模型中按 int 存储。</p><p>支持在 main 前定义基础 class / struct，声明对象并读写 public 数据成员（如 <code>a.x = 1;</code>），支持成员数组、复合赋值和自增。class 默认 private，struct 默认 public；private / protected 成员禁止在 main 中访问。对象成员按声明顺序以 4 字节单元分配，并以 a.x 等名称显示在变量和内存视图中；初始值按教学规则置零。</p><h3>模型说明</h3><p>这是解释执行中间指令的教学模拟器。汇编是架构风格的伪指令映射，并非原生机器码或完整 ISA 仿真。四种模型提供不同寄存器命名、32/64 位展示和求值栈槽宽度；C++ int 数据统一为 32 位，小端序，溢出按补码截断。</p><p>固定 4 字节的指令地址、状态标志、寄存器分配与数据通路均为教学简化；计数表示教学指令数，不是真实 CPU 周期。求值栈属于解释器，不代表原生函数调用栈。不包含缓存、流水线、操作系统、指针、函数调用、构造函数、成员函数、继承、嵌套对象、对象数组、对象复制、类内成员初始化、STL、浮点数或完整 C++ 语义。</p><div className="help-note"><Square size={14} />每次运行最多 100,000 条指令；数组越界与除零会停止运行并显示原因。</div></div>}</section></div>}
   </div>;
 }
