@@ -1,0 +1,125 @@
+/* Desktop workstation: fixed outer viewport, independently scrollable content. */
+@media (min-width: 1100px) and (min-height: 680px) {
+  .app-shell { height: 100dvh; min-height: 0; overflow: hidden; }
+  .rail { width: 58px; padding: 15px 4px; gap: 8px; }
+  .brand-icon { width: 34px; height: 34px; margin-bottom: 13px; }
+  .rail-button { width: 48px; height: 56px; }
+  .rail-button.active::before { left: -4px; }
+  .main-shell { margin-left: 58px; width: calc(100% - 58px); height: 100%; display: flex; flex-direction: column; min-width: 0; }
+  .topbar { height: 44px; flex-shrink: 0; padding: 0 16px; }
+  .brand-name { font-size: 16px; }
+  .topbar-right { gap: 16px; }
+  .main-shell > main { width: 100%; max-width: none; margin: 0; padding: 9px 12px; flex: 1; min-height: 0; display: grid; grid-template-rows: 46px minmax(270px, 1.12fr) minmax(250px, 1fr); gap: 9px; }
+  .page-heading, .page-footer { display: none; }
+  .toolbar { margin: 0; padding: 6px 10px; flex-wrap: nowrap; gap: 8px; }
+  .toolbar-group { gap: 7px; }
+  .toolbar-actions { margin-left: auto; }
+  .statusbar { height: 23px; flex-shrink: 0; }
+
+  .cpu-diagram-panel:not(.diagram-expanded) { min-height: 0; margin: 0; display: flex; flex-direction: column; }
+  .cpu-diagram-panel > .panel-header { height: 36px; min-height: 36px; padding: 0 11px; }
+  .diagram-view-switch { padding: 2px; }
+  .diagram-view-switch button { padding: 4px 9px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-caption { padding: 5px 11px; font-size: 9px; flex-shrink: 0; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-caption > span:last-child { font-size: 8px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-scroll { min-height: 0; flex: 1; padding: 4px 10px 7px; overflow: auto; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-board { min-width: 0; height: 100%; grid-template-columns: minmax(200px, 1fr) 24px minmax(355px, 1.6fr) 24px minmax(265px, 1.15fr); align-items: stretch; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-bus { align-self: center; gap: 22px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-memory { padding: 9px; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-chip { padding: 10px; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-footer { padding: 4px 11px; flex-shrink: 0; font-size: 8px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-rom-row { padding: 7px 2px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-table-heading { margin-top: 10px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-next { padding: 8px 0; }
+  .cpu-diagram-panel:not(.diagram-expanded) .chip-heading { margin-bottom: 8px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .chip-module { padding: 7px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .chip-module label { margin-bottom: 5px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .chip-module small { margin-top: 4px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .chip-down { height: 19px; line-height: 19px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .chip-decoder { padding: 5px 7px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .chip-registers > div { line-height: 19px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .alu-operand { margin-top: 7px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .alu-symbol { height: 32px; width: 80px; margin: 7px auto; padding-top: 5px; font-size: 17px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .chip-memory-interface { padding: 7px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .chip-branch { margin-top: 8px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-cpu-icon { width: 40px; height: 40px; float: left; margin-right: 12px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-cpu-icon svg { width: 27px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-cpu h3 { text-align: left; margin: 3px 0 5px; font-size: 14px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-cpu > p { text-align: left; margin: 0 0 12px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-cpu-state { padding: 7px 0; }
+
+  .workspace, .workspace.editor-expanded { min-height: 0; grid-template-columns: minmax(260px, 1.13fr) minmax(230px, .93fr) minmax(290px, 1fr); grid-template-rows: minmax(0, 1fr) minmax(90px, .43fr); gap: 9px; }
+  .workspace .panel { min-height: 0; }
+  .editor-panel { grid-column: 1; grid-row: 1 / 3; }
+  .assembly-panel { grid-column: 2; grid-row: 1; }
+  .cpu-panel { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; }
+  .bottom-panel { grid-column: 2; grid-row: 2; }
+  .memory-panel { grid-column: 3; grid-row: 2; }
+  .workspace .panel-header { height: 33px; padding: 0 11px; }
+  .panel-title h2 { font-size: 11px; }
+  .workspace .bottom-header { height: 32px; padding: 0 10px; }
+  .bottom-tabs { gap: 11px; }
+  .bottom-tabs button { font-size: 9px; gap: 5px; }
+  .bottom-header-note { display: none; }
+  .console-content, .memory-content { height: calc(100% - 32px); }
+  .console-content { padding: 7px 10px; font-size: 9px; line-height: 19px; }
+  .console-line { gap: 5px; }
+  .console-time { width: 37px; font-size: 7px; }
+  .trace-line { grid-template-columns: 35px 1fr; gap: 3px 7px; }
+  .trace-line > span:last-child { grid-column: 2; }
+  .validation-pending { padding: 5px 0; flex-wrap: wrap; gap: 8px; }
+  .validation-pending strong { font-size: 10px; }
+  .validation-pending p { margin: 0; font-size: 9px; }
+  .validation-summary { font-size: 10px; flex-wrap: wrap; gap: 4px; }
+  .validation-summary > span { margin-left: 0; }
+  .validation-checks { gap: 4px; }
+  .validation-checks > div { padding: 1px 5px; }
+  .file-tabs, .file-tab { height: 29px; }
+  .file-tab { font-size: 9px; }
+  .source-tip { display: none; }
+  .editor-footer { padding: 5px 10px; }
+  .code-highlight, .code-editor textarea { font-size: 11px; line-height: 22px; padding-top: 10px; padding-bottom: 10px; }
+  .code-line { height: 22px; }
+  .line-number { line-height: 22px; }
+  .assembly-summary { padding: 7px 11px; }
+  .assembly-columns { padding-bottom: 5px; }
+  .assembly-list { min-height: 0; }
+  .instruction-row { height: 23px; }
+  .assembly-footer { height: 26px; flex-shrink: 0; }
+  .cpu-content { flex: 1; min-height: 0; padding: 8px 10px; overflow: auto; }
+  .processor-card { display: none; }
+  .section-label { margin-bottom: 6px; }
+  .register-grid { gap: 5px; }
+  .register { padding: 5px 7px; }
+  .register code { font-size: 9px; }
+  .flags-row { margin-top: 8px; padding-bottom: 8px; }
+  .datapath-heading, .datapath { display: none; }
+  .execution-detail { margin: 7px 0; padding: 5px 6px; min-height: 24px; }
+  .cpu-metrics { padding-top: 6px; }
+  .cpu-metrics strong { font-size: 14px; }
+  th { padding: 6px 9px; }
+  td { padding: 6px 9px; }
+  .empty-state { min-height: 0; font-size: 9px; gap: 6px; padding: 8px; }
+
+  .workspace.editor-expanded .editor-panel { position: fixed; inset: 60px 18px 34px 76px; z-index: 40; height: auto; box-shadow: 0 0 0 50px #0b1119d9; }
+  .workspace.editor-expanded .assembly-panel { display: flex; grid-column: 2; grid-row: 1; }
+  .workspace.editor-expanded .cpu-panel { grid-column: 3; grid-row: 1; }
+  .workspace.editor-expanded .memory-panel { grid-column: 3; grid-row: 2; min-height: 0; }
+  .workspace.editor-expanded .bottom-panel { grid-column: 2; grid-row: 2; }
+}
+
+@media (min-width: 1100px) and (max-width: 1250px) and (min-height: 680px) {
+  .field-label { display: none; }
+  .toolbar-separator { margin: 0 1px; }
+  .select-wrap select { min-width: 130px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-board { grid-template-columns: minmax(190px, 1fr) 20px minmax(335px, 1.6fr) 20px minmax(255px, 1.15fr); }
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-caption > span:last-child { display: none; }
+}
+
+@media (min-width: 1500px) and (min-height: 900px) {
+  .main-shell > main { grid-template-rows: 46px minmax(350px, 1.15fr) minmax(320px, 1fr); }
+  .workspace { grid-template-rows: minmax(0, 1fr) minmax(110px, .43fr); }
+  .code-highlight, .code-editor textarea { font-size: 12px; line-height: 24px; }
+  .code-line { height: 24px; }
+  .line-number { line-height: 24px; }
+}

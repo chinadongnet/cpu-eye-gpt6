@@ -48,6 +48,22 @@ export default function App() {
   }, [running, program, speed]);
   useEffect(() => { if (machine.halted) setRunning(false); }, [machine.halted]);
   useEffect(() => {
+    const editor = editorRef.current, highlight = highlightRef.current;
+    if (!activeLine || !editor || !highlight || document.activeElement === editor) return;
+    const lineHeight = parseFloat(getComputedStyle(editor).lineHeight);
+    const top = parseFloat(getComputedStyle(editor).paddingTop) + (activeLine - 1) * lineHeight;
+    if (top < editor.scrollTop || top + lineHeight > editor.scrollTop + editor.clientHeight) {
+      editor.scrollTop = Math.max(0, top - editor.clientHeight / 2);
+      highlight.scrollTop = editor.scrollTop;
+    }
+  }, [activeLine]);
+  useEffect(() => {
+    if (!editorExpanded) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setEditorExpanded(false); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [editorExpanded]);
+  useEffect(() => {
     const row = assemblyRef.current?.querySelector<HTMLElement>('[data-active="true"]');
     if (row && assemblyRef.current) {
       const container = assemblyRef.current;
