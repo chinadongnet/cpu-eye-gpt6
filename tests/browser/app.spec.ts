@@ -180,6 +180,41 @@ test('默认简单模式，切换详细模式保留执行状态，左右展示�
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('求值栈按向下增长顺序堆叠，入栈出栈后 SP 与可见栈顶保持一致', async ({ page }) => {
+  await page.goto('/');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByLabel('C++ 源代码编辑器').fill('int main() { return 1 + (2 + (3 + (4 + 5))); }');
+  await page.getByRole('button', { name: '编译', exact: true }).click();
+  const single = page.getByRole('button', { name: '单步', exact: true });
+  for (let i = 0; i < 5; i++) await single.click();
+  await page.getByRole('button', { name: '展开 CPU 示意图', exact: true }).click();
+  const values = page.getByTestId('stack-values');
+  const slots = values.getByRole('listitem');
+  await expect(slots.locator('strong')).toHaveText(['1', '2', '3', '4', '5']);
+  await expect(slots.locator('code')).toHaveText(['0x00007FF8', '0x00007FF0', '0x00007FE8', '0x00007FE0', '0x00007FD8']);
+  await expect(page.getByTestId('stack-sp')).toHaveText('0x00007FD8');
+  await expect(values.locator('.stack-top')).toHaveText(/5.*SP → 栈顶/);
+  await expect(slots.last()).toHaveCSS('animation-name', 'none');
+  const topInScrollport = () => values.locator('.stack-top').evaluate(top => {
+    const list = top.parentElement!.getBoundingClientRect();
+    const slot = top.getBoundingClientRect();
+    return slot.top >= list.top && slot.bottom <= list.bottom;
+  });
+  await expect.poll(topInScrollport).toBe(true);
+  const upper = await slots.nth(3).boundingBox(), lower = await slots.nth(4).boundingBox();
+  expect(lower!.y).toBeGreaterThan(upper!.y + upper!.height);
+  await page.keyboard.press('Escape');
+  await single.click();
+  await expect(slots.locator('strong')).toHaveText(['1', '2', '3', '9']);
+  await expect(values.locator('.stack-top code')).toHaveText('0x00007FE0');
+  await expect(page.getByTestId('stack-sp')).toHaveText('0x00007FE0');
+  await expect.poll(topInScrollport).toBe(true);
+  await page.getByRole('button', { name: '重置执行', exact: true }).click();
+  await expect(slots).toHaveCount(0);
+  await expect(values).toContainText('栈为空');
+  await expect(page.getByTestId('stack-sp')).toHaveText('0x00008000');
+});
+
 test('指令流只展示一份完整程序，PC / IR 随执行、重编译和架构切换同步', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 700 });
   await page.goto('/');
