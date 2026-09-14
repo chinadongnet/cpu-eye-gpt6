@@ -129,7 +129,7 @@ test('CPU 示意图按指令更新 PC、IR、ALU、实际地址并响应重置�
   await expect(page.getByTestId('diagram-alu')).toContainText('等待运算');
 });
 
-test('默认简单模式，切换详细模式保留执行状态，左右展示指令内存与 main 栈帧', async ({ page }) => {
+test('默认简单模式，切换详细模式保留执行状态，左右展示统一指令流与 main 栈帧', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('button', { name: '简单模式', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('simple-cpu')).toHaveAttribute('data-status', 'idle');
@@ -141,9 +141,9 @@ test('默认简单模式，切换详细模式保留执行状态，左右展示�
   await expect(page.getByTestId('simple-cpu')).toContainText('0x00400004');
   await expect(page.getByTestId('simple-registers')).toHaveClass(/is-active/);
   await expect(page.getByTestId('diagram-stack')).toContainText('main()');
-  const rom = await page.locator('.instruction-memory').boundingBox();
+  const stream = await page.getByTestId('instruction-stream').boundingBox();
   const stack = await page.locator('.data-memory').boundingBox();
-  expect(rom!.x + rom!.width).toBeLessThan(stack!.x);
+  expect(stream!.x + stream!.width).toBeLessThan(stack!.x);
   for (let i = 0; i < 5; i++) await single.click();
   const x = page.locator('.stack-local-row').filter({ has: page.getByText('a.x', { exact: true }) });
   await expect(x.locator('strong')).toHaveText('1');
@@ -172,10 +172,56 @@ test('默认简单模式，切换详细模式保留执行状态，左右展示�
   await expect(page.getByTestId('simple-cpu')).toHaveAttribute('data-status', 'idle');
   await expect(page.getByTestId('simple-ir')).toContainText('等待取指');
   const chip = await page.getByTestId('simple-cpu').boundingBox();
+  const mobileStream = await page.getByTestId('instruction-stream').boundingBox();
   const mobileStack = await page.locator('.data-memory').boundingBox();
   expect(chip!.width).toBeLessThan(390);
+  expect(mobileStream!.y + mobileStream!.height).toBeLessThan(chip!.y);
   expect(mobileStack!.y).toBeGreaterThan(chip!.y + chip!.height);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('指令流只展示一份完整程序，PC / IR 随执行、重编译和架构切换同步', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 700 });
+  await page.goto('/');
+  const stream = page.getByTestId('instruction-stream');
+  await expect(page.getByRole('heading', { name: '指令流', exact: true })).toHaveCount(1);
+  await expect(page.getByText('指令内存', { exact: true })).toHaveCount(0);
+  await expect(stream.locator('.stream-row')).toHaveCount(25);
+  await expect(stream.locator('[aria-current="step"]')).toHaveAttribute('data-pc', '0');
+  const single = page.getByRole('button', { name: '单步', exact: true });
+  await single.click();
+  await expect(stream.locator('.marker-ir')).toHaveText('IR');
+  await expect(stream.locator('.is-executed code')).toHaveText('MOV RAX, 10');
+  await expect(stream.locator('[aria-current="step"]')).toHaveAttribute('data-pc', '1');
+  await page.getByLabel('执行速度').selectOption('120');
+  await page.getByRole('button', { name: '运行', exact: true }).click();
+  await expect(stream.locator('.stream-legend')).toContainText('执行结束');
+  await expect(stream.locator('[aria-current="step"]')).toHaveCount(0);
+  await expect(stream.locator('.is-executed code')).toHaveText('RET');
+  const inScrollport = () => stream.locator('[data-focused="true"]').evaluate(row => {
+    const list = row.parentElement!;
+    return row.getBoundingClientRect().top >= list.getBoundingClientRect().top && row.getBoundingClientRect().bottom <= list.getBoundingClientRect().bottom;
+  });
+  await expect.poll(inScrollport).toBe(true);
+  expect(await stream.locator('.stream-list').evaluate(list => list.scrollTop)).toBeGreaterThan(0);
+  await page.getByRole('button', { name: '展开 CPU 示意图', exact: true }).click();
+  await expect(stream).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect.poll(inScrollport).toBe(true);
+  await page.getByRole('button', { name: '重置执行', exact: true }).click();
+  await expect(stream.locator('.marker-ir')).toHaveCount(0);
+  await expect(stream.locator('[aria-current="step"]')).toHaveAttribute('data-pc', '0');
+  await expect.poll(inScrollport).toBe(true);
+  await page.getByLabel('C++ 源代码编辑器').fill('int main() {\n  return 42;\n}');
+  await expect(stream).toContainText('待编译 · 上次快照');
+  await expect(stream.locator('.stream-row')).toHaveCount(25);
+  await page.getByRole('button', { name: '编译', exact: true }).click();
+  await expect(stream).not.toContainText('待编译');
+  await expect(stream.locator('.stream-row').first().locator('code')).toHaveText('MOV RAX, 42');
+  await expect(stream.locator('.stream-row').first().locator('.stream-source')).toHaveText('2');
+  await page.getByLabel('CPU 架构').selectOption('arm64');
+  await expect(stream.locator('.stream-row').first().locator('code')).toHaveText('MOV X0, #42');
+  await expect(stream.locator('[aria-current="step"]')).toHaveAttribute('data-pc', '0');
 });
 
 test('简单芯片图按实际指令点亮运算、读写和跳转通路，重置清空快照', async ({ page }) => {
@@ -255,7 +301,7 @@ for (const viewport of [{ width: 1100, height: 700 }, { width: 1366, height: 768
     for (const mode of ['详细模式', '简单模式']) {
       await page.getByRole('button', { name: mode, exact: true }).click();
       const layout = await page.evaluate(() => {
-        const selectors = ['.toolbar', '.cpu-diagram-panel', '.editor-panel', '.assembly-panel', '.cpu-panel', '.bottom-panel', '.memory-panel'];
+        const selectors = ['.toolbar', '.cpu-diagram-panel', '.editor-panel', '.instruction-stream', '.cpu-panel', '.bottom-panel', '.memory-panel'];
         return {
           overflow: document.documentElement.scrollHeight > innerHeight || document.documentElement.scrollWidth > innerWidth,
           panels: selectors.map(selector => { const r = document.querySelector(selector)!.getBoundingClientRect(); return { selector, visible: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth && r.height > 60 }; }),

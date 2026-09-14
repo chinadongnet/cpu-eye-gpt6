@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, ArrowDown, ArrowDownToLine, ArrowRight, BookOpen, Check, CheckCheck, ChevronDown, ChevronRight, CircleHelp, Code2, Cpu, FileCode2, FlaskConical, GitBranch, Layers, Maximize2, MemoryStick, Pause, Play, RotateCcw, Settings2, SkipForward, Square, Terminal, X, Zap } from 'lucide-react';
-import { architectures, compile, createMachine, hex, instructionText, step, type Architecture, type Machine } from './engine';
+import { architectures, compile, createMachine, hex, step, type Architecture, type Machine } from './engine';
 import { examples, validateExample } from './examples';
 import CpuDiagram from './CpuDiagram';
 import Changelog from './Changelog';
@@ -33,7 +33,6 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
-  const assemblyRef = useRef<HTMLDivElement>(null);
   const example = examples.find(item => item.id === exampleId)!;
   const model = architectures[arch];
   const dirty = source !== program.source;
@@ -67,13 +66,6 @@ export default function App() {
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
   }, [editorExpanded]);
-  useEffect(() => {
-    const row = assemblyRef.current?.querySelector<HTMLElement>('[data-active="true"]');
-    if (row && assemblyRef.current) {
-      const container = assemblyRef.current;
-      if (row.offsetTop < container.scrollTop || row.offsetTop + row.offsetHeight > container.scrollTop + container.clientHeight) container.scrollTop = row.offsetTop - container.clientHeight / 2;
-    }
-  }, [machine.pc]);
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 2500); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => {
     if (!dialog) return;
@@ -157,17 +149,6 @@ export default function App() {
             </div>
             <div className="editor-footer"><span><i className={`tiny-dot ${dirty ? 'orange' : ''}`} />{dirty ? '有未编译的修改' : '教学 C++ 子集'}</span><span>UTF-8<span className="footer-gap">{source.split('\n').length} 行</span></span></div>
             <div className="source-tip"><div className="tip-icon"><GitBranch size={17} /></div><div><strong>{example.title}<span>{example.tag.split(' · ')[0]}</span></strong><p>{example.subtitle}</p></div><button title="查看所有示例" onClick={() => setDialog('examples')}><ChevronRight size={17} /></button></div>
-          </section>
-
-          <section className="panel assembly-panel">
-            <div className="panel-header"><div className="panel-title"><Terminal size={17} /><h2>指令流</h2></div><span className="subtle-tag">{model.label}</span></div>
-            <div className="assembly-summary"><span><i className="tiny-dot" />{program.instructions.length} 条指令</span><span>教学汇编 · IR 映射</span></div>
-            <div className="assembly-columns"><span>地址</span><span>指令 / 操作数</span></div>
-            <div className="assembly-list" ref={assemblyRef}>{program.instructions.map((instruction, index) => {
-              const text = instructionText(instruction, arch), space = text.indexOf(' '), active = index === machine.pc && !machine.halted;
-              return <div key={index} data-active={active} className={`instruction-row ${active ? 'active' : ''} ${index === machine.lastPc ? 'executed' : ''}`} title={`C++ 第 ${instruction.line} 行 · ${instruction.op}`}><span className="instruction-marker">{active ? <ArrowRight size={12} /> : index === machine.lastPc ? <Check size={11} /> : ''}</span><span className="instruction-address">{(0x400000 + index * 4).toString(16).toUpperCase()}</span><code><span className={['JMP', 'JZ'].includes(instruction.op) ? 'op-branch' : instruction.op === 'STORE' ? 'op-store' : 'op-normal'}>{space < 0 ? text : text.slice(0, space)}</span>{space < 0 ? '' : text.slice(space)}</code>{active && <span className="pc-label">PC</span>}</div>;
-            })}</div>
-            <div className="assembly-footer"><span className="legend"><i />下一条指令</span><span>PC <b>0x{(0x400000 + machine.pc * 4).toString(16).toUpperCase()}</b></span></div>
           </section>
 
           <section className="panel cpu-panel">

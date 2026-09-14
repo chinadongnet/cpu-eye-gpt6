@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Cpu, Maximize2, Minimize2 } from 'lucide-react';
 import { architectures, hex, instructionText, type Machine, type Program } from './engine';
 import './cpu-diagram.css';
 import StackMemory from './StackMemory';
 import SimpleCpu from './SimpleCpu';
+import InstructionStream from './InstructionStream';
 
 const address = (value: number) => `0x${hex(value)}`;
 const codeAddress = (pc: number) => address(0x400000 + pc * 4);
@@ -23,10 +24,6 @@ export default function CpuDiagram({ program, machine, running, dirty }: { progr
   const memory = event?.memory, branch = event?.branch;
   const alu = instruction?.op === 'BINARY' || instruction?.op === 'UNARY';
   const successful = !!event && !machine.error;
-  const next = !machine.halted ? program.instructions[machine.pc] : undefined;
-  const focusPc = event?.pc ?? machine.pc;
-  const start = Math.max(0, Math.min(focusPc - 2, program.instructions.length - 6));
-  const instructionSet = useMemo(() => [...new Set(program.instructions.map(item => instructionText(item, machine.arch).split(' ')[0]))], [program, machine.arch]);
   const cells = program.variables.flatMap(variable => machine.memory[variable.name].map((value, index) => ({
     name: variable.size > 1 ? `${variable.name}[${index}]` : variable.name,
     address: variable.address + index * 4, value,
@@ -34,7 +31,6 @@ export default function CpuDiagram({ program, machine, running, dirty }: { progr
   const memoryIndex = memory ? cells.findIndex(cell => cell.address === memory.address) : 0;
   const memoryStart = Math.max(0, Math.min(memoryIndex - 1, cells.length - 5));
   const active = (condition: boolean) => condition && successful ? ' active' : '';
-  const mnemonic = instruction ? instructionText(instruction, machine.arch).split(' ')[0] : '';
   useEffect(() => {
     if (!expanded) return;
     const close = (e: KeyboardEvent) => { if (e.key === 'Escape') setExpanded(false); };
@@ -49,17 +45,7 @@ export default function CpuDiagram({ program, machine, running, dirty }: { progr
     <div className="panel-header"><div className="panel-title"><Cpu size={18} /><h2>CPU 动态示意图</h2><span className="subtle-tag">{model.label} · {model.bits}-BIT</span></div><div className="panel-tools"><div className="diagram-view-switch" role="group" aria-label="CPU 示意图模式"><button aria-pressed={view === 'simple'} onClick={() => setView('simple')}>简单模式</button><button aria-pressed={view === 'detailed'} onClick={() => setView('detailed')}>详细模式</button></div><span className="diagram-step">STEP {machine.cycles}</span><button className="icon-button" title={expanded ? '退出示意图全屏' : '展开 CPU 示意图'} onClick={() => setExpanded(!expanded)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div></div>
     <div className="diagram-caption"><span><i className="tiny-dot" />{dirty ? '源码已修改 · 图示保留上次编译状态' : machine.error ? `执行停止：${machine.error}` : event ? `已执行第 ${instruction!.line} 行 · ${instructionText(instruction!, machine.arch)}` : '点击单步或运行，观察指令如何驱动 CPU'}</span><span>蓝色：地址 / 取指　绿色：数据　紫色：控制</span></div>
     <div className="diagram-scroll"><div className="diagram-board">
-      <div className="diagram-memory instruction-memory">
-        <div className="diagram-box-title">指令内存 <small>INSTRUCTION MEMORY</small></div>
-        <div className="diagram-table-heading"><span>指令地址</span><span>架构风格指令</span></div>
-        <div className="diagram-rom">{program.instructions.slice(start, start + 6).map((item, offset) => {
-          const pc = start + offset;
-          return <div key={pc} className={`diagram-rom-row ${event?.pc === pc ? 'latched' : ''} ${next && machine.pc === pc ? 'next' : ''}`} title={`第 ${item.line} 行：${instructionText(item, machine.arch)}`}><code>{codeAddress(pc)}</code><code>{instructionText(item, machine.arch)}</code><small>{event?.pc === pc ? 'IR' : next && machine.pc === pc ? 'PC' : ''}</small></div>;
-        })}</div>
-        <div className="diagram-next"><span>{machine.halted ? '执行已停止' : '下一条指令'}</span><code>{next ? `${codeAddress(machine.pc)} · ${instructionText(next, machine.arch)}` : machine.error || `返回值 ${machine.result ?? '—'}`}</code></div>
-        <div className="diagram-box-title isa-title">本程序指令集 <small>教学映射</small></div>
-        <div className="diagram-isa">{instructionSet.map(item => <span key={item} className={item === mnemonic ? 'selected' : ''}>{item}</span>)}</div>
-      </div>
+      <InstructionStream program={program} machine={machine} dirty={dirty} expanded={expanded} />
 
       <div className="diagram-bus instruction-bus" aria-label="取指总线"><div className={`bus-track address-bus bus-reverse${active(!!event)}`}><span>地址</span><b>←</b></div><div className={`bus-track data-bus${active(!!event)}`}><span>指令</span><b>→</b></div></div>
 
