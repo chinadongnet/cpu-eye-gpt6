@@ -1,0 +1,43 @@
+.instruction-stream { display: flex; flex-direction: column; min-width: 0; min-height: 0; align-self: stretch; border: 1px solid #354855; border-radius: 9px; background: #141e28; overflow: hidden; }
+.stream-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 12px 8px; flex-shrink: 0; }
+.stream-heading h3 { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 11px; font-weight: 550; color: #cedee9; }
+.stream-heading svg { color: #8eacbf; }
+.stream-heading > span { color: #95b0c2; font: 9px var(--mono); padding: 3px 6px; border: 1px solid #344751; border-radius: 4px; background: #1c2a33; }
+.stream-summary { display: flex; justify-content: space-between; gap: 8px; padding: 0 12px 10px; font-size: 8px; color: #7c94a7; flex-shrink: 0; }
+.stream-summary.is-stale > span:last-child { color: #dbba8c; }
+.stream-columns, .stream-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) 20px 30px; align-items: center; gap: 6px; }
+.stream-columns { padding: 7px 12px; border-block: 1px solid #2a3a47; background: #111b24; color: #778fa3; font-size: 8px; flex-shrink: 0; }
+.stream-columns > span:nth-last-child(-n+2) { text-align: center; }
+/* PC following owns the scroll position, including after row heights change. */
+.stream-list { flex: 1 1 auto; min-height: 0; max-height: 420px; overflow: auto; overflow-anchor: none; position: relative; scrollbar-gutter: stable; outline-offset: -2px; padding-block: 4px; }
+.stream-list:focus-visible { outline: 2px solid #8dbce3; }
+.stream-row { min-height: 29px; padding: 5px 7px 5px 10px; border-left: 2px solid transparent; border-bottom: 1px solid #23333e88; font: 10px/18px var(--mono); }
+.stream-address { font-size: 9px; color: #748fa6; }
+.stream-row code { color: #bacddd; font: inherit; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stream-row code b { color: #96c2e0; font-weight: 500; }
+.stream-row code .stream-branch { color: #c4ace2; }
+.stream-row code .stream-store { color: #a8d1ae; }
+.stream-source { text-align: center; color: #72889a; font-size: 8px; }
+.stream-marker { font: 8px/16px var(--mono); text-align: center; border-radius: 3px; }
+.stream-row.is-executed { background: #b6a3d309; }
+.stream-row.is-next { background: #a6e9b010; border-left-color: #a6e9b0; }
+.stream-row.is-next .stream-address { color: #b1d9bc; }
+.marker-pc { color: #baf0c4; background: #a6e9b019; }
+.marker-ir { color: #d5bbed; background: #c4a6f41a; }
+.stream-legend { display: flex; align-items: center; gap: 12px; padding: 9px 11px; border-top: 1px solid #2a3a47; color: #8da3b5; font-size: 8px; flex-shrink: 0; }
+.stream-legend > span { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.stream-legend > span:last-child { margin-left: auto; color: #718d9e; font: 8px var(--mono); }
+.stream-legend i { height: 5px; width: 5px; border-radius: 2px; }
+.legend-pc { background: #a6e9b0; }
+.legend-ir { background: #c4a6f4; }
+@media (min-width: 1100px) and (min-height: 680px) {
+  .cpu-diagram-panel:not(.diagram-expanded) .stream-heading { padding: 9px 10px 6px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .stream-summary { padding: 0 10px 7px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .stream-columns { padding-block: 5px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .stream-row { min-height: 26px; padding-block: 3px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .stream-legend { padding-block: 7px; }
+}
+@media (max-width: 700px) {
+  .instruction-stream .stream-list { flex: none; max-height: 210px; }
+  .stream-row { font-size: 9px; }
+}

@@ -1,4 +1,4 @@
-.diagram-simple .diagram-board { grid-template-columns: minmax(210px, 1fr) 36px minmax(380px, 1.7fr) 36px minmax(270px, 1.1fr); min-width: 960px; }
+.diagram-simple .diagram-board { grid-template-columns: minmax(285px, 1fr) 32px minmax(380px, 1.45fr) 32px minmax(285px, 1.05fr); min-width: 1014px; }
 .diagram-simple .diagram-scroll { background-color: #101b23; background-image: radial-gradient(#6ba6a522 1px, transparent 1px), radial-gradient(ellipse at center, #4b9c8610, transparent 65%); }
 .simple-cpu { --signal-blue: #8dc6ff; --signal-green: #a6e9b0; --signal-purple: #c4a6f4; display: flex; flex-direction: column; gap: 9px; min-width: 0; padding: 13px; border: 1px solid #4b766e; border-radius: 10px; background: linear-gradient(145deg, #203a3538, #131e28 60%); box-shadow: inset 0 1px #b5e8d312, 0 0 24px #73cfa609; }
 .simple-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; }
@@ -88,7 +88,6 @@
   .diagram-simple .bus-track span { left: 10px; top: 7px; bottom: auto; width: auto; }
   .diagram-simple .bus-track b { transform: rotate(90deg); top: 12px; right: -10px; }
   .diagram-simple.diagram-running .bus-track.active { background: currentColor; animation: none; }
-  .diagram-simple .diagram-rom { max-height: 140px; overflow: auto; }
   .simple-cpu { padding: 10px 8px; gap: 8px; }
   .simple-heading small { display: none; }
   .simple-cycle > span { gap: 3px; font-size: 8px; }
