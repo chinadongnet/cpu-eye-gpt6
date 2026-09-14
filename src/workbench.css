@@ -42,11 +42,6 @@
   .cpu-diagram-panel:not(.diagram-expanded) .alu-symbol { height: 32px; width: 80px; margin: 7px auto; padding-top: 5px; font-size: 17px; }
   .cpu-diagram-panel:not(.diagram-expanded) .chip-memory-interface { padding: 7px; }
   .cpu-diagram-panel:not(.diagram-expanded) .chip-branch { margin-top: 8px; }
-  .cpu-diagram-panel:not(.diagram-expanded) .simple-cpu-icon { width: 40px; height: 40px; float: left; margin-right: 12px; }
-  .cpu-diagram-panel:not(.diagram-expanded) .simple-cpu-icon svg { width: 27px; }
-  .cpu-diagram-panel:not(.diagram-expanded) .simple-cpu h3 { text-align: left; margin: 3px 0 5px; font-size: 14px; }
-  .cpu-diagram-panel:not(.diagram-expanded) .simple-cpu > p { text-align: left; margin: 0 0 12px; }
-  .cpu-diagram-panel:not(.diagram-expanded) .simple-cpu-state { padding: 7px 0; }
 
   .workspace, .workspace.editor-expanded { min-height: 0; grid-template-columns: minmax(260px, 1.13fr) minmax(230px, .93fr) minmax(290px, 1fr); grid-template-rows: minmax(0, 1fr) minmax(90px, .43fr); gap: 9px; }
   .workspace .panel { min-height: 0; }

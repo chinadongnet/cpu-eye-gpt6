@@ -3,6 +3,7 @@ import { Cpu, Maximize2, Minimize2 } from 'lucide-react';
 import { architectures, hex, instructionText, type Machine, type Program } from './engine';
 import './cpu-diagram.css';
 import StackMemory from './StackMemory';
+import SimpleCpu from './SimpleCpu';
 
 const address = (value: number) => `0x${hex(value)}`;
 const codeAddress = (pc: number) => address(0x400000 + pc * 4);
@@ -15,7 +16,7 @@ const groups = [
 
 export default function CpuDiagram({ program, machine, running, dirty }: { program: Program; machine: Machine; running: boolean; dirty: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const [view, setView] = useState<'simple' | 'detailed'>('detailed');
+  const [view, setView] = useState<'simple' | 'detailed'>('simple');
   const [memoryView, setMemoryView] = useState<'stack' | 'ram'>('stack');
   const root = useRef<HTMLElement>(null);
   const event = machine.execution, instruction = event?.instruction, model = architectures[machine.arch];
@@ -45,7 +46,7 @@ export default function CpuDiagram({ program, machine, running, dirty }: { progr
   }, [expanded]);
 
   return <section ref={root} tabIndex={-1} className={`panel cpu-diagram-panel diagram-${view} ${expanded ? 'diagram-expanded' : ''} ${running ? 'diagram-running' : ''}`} aria-label="CPU 动态示意图" role={expanded ? 'dialog' : 'region'} aria-modal={expanded || undefined}>
-    <div className="panel-header"><div className="panel-title"><Cpu size={18} /><h2>CPU 动态示意图</h2><span className="subtle-tag">{model.label} · {model.bits}-BIT</span></div><div className="panel-tools"><div className="diagram-view-switch" role="group" aria-label="CPU 示意图模型"><button aria-pressed={view === 'simple'} onClick={() => setView('simple')}>简单模型</button><button aria-pressed={view === 'detailed'} onClick={() => setView('detailed')}>详细模型</button></div><span className="diagram-step">STEP {machine.cycles}</span><button className="icon-button" title={expanded ? '退出示意图全屏' : '展开 CPU 示意图'} onClick={() => setExpanded(!expanded)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div></div>
+    <div className="panel-header"><div className="panel-title"><Cpu size={18} /><h2>CPU 动态示意图</h2><span className="subtle-tag">{model.label} · {model.bits}-BIT</span></div><div className="panel-tools"><div className="diagram-view-switch" role="group" aria-label="CPU 示意图模式"><button aria-pressed={view === 'simple'} onClick={() => setView('simple')}>简单模式</button><button aria-pressed={view === 'detailed'} onClick={() => setView('detailed')}>详细模式</button></div><span className="diagram-step">STEP {machine.cycles}</span><button className="icon-button" title={expanded ? '退出示意图全屏' : '展开 CPU 示意图'} onClick={() => setExpanded(!expanded)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div></div>
     <div className="diagram-caption"><span><i className="tiny-dot" />{dirty ? '源码已修改 · 图示保留上次编译状态' : machine.error ? `执行停止：${machine.error}` : event ? `已执行第 ${instruction!.line} 行 · ${instructionText(instruction!, machine.arch)}` : '点击单步或运行，观察指令如何驱动 CPU'}</span><span>蓝色：地址 / 取指　绿色：数据　紫色：控制</span></div>
     <div className="diagram-scroll"><div className="diagram-board">
       <div className="diagram-memory instruction-memory">
@@ -60,17 +61,9 @@ export default function CpuDiagram({ program, machine, running, dirty }: { progr
         <div className="diagram-isa">{instructionSet.map(item => <span key={item} className={item === mnemonic ? 'selected' : ''}>{item}</span>)}</div>
       </div>
 
-      <div className="diagram-bus instruction-bus" aria-label="取指总线"><div className={`bus-track address-bus${active(!!event)}`}><span>地址</span><b>←</b></div><div className={`bus-track data-bus${active(!!event)}`}><span>指令</span><b>→</b></div></div>
+      <div className="diagram-bus instruction-bus" aria-label="取指总线"><div className={`bus-track address-bus bus-reverse${active(!!event)}`}><span>地址</span><b>←</b></div><div className={`bus-track data-bus${active(!!event)}`}><span>指令</span><b>→</b></div></div>
 
-      {view === 'simple' ? <div className="diagram-chip simple-cpu" data-testid="simple-cpu">
-        <div className="simple-cpu-icon"><Cpu size={38} /></div><h3>{model.label} CPU</h3><p>取指 → 执行 → 更新数据</p>
-        <div className="simple-cpu-state"><label>下一条地址 PC</label><code>{codeAddress(machine.pc)}</code></div>
-        <div className="simple-cpu-state"><label>当前指令 IR</label><code>{instruction ? instructionText(instruction, machine.arch) : '等待取指'}</code></div>
-        <div className="simple-cpu-state"><label>本次操作</label><strong>{machine.trace.at(-1)?.detail || '点击单步开始'}</strong></div>
-        <div className="simple-cpu-state"><label>{model.registers[0]} / 返回寄存器</label><code>{machine.registers[0]}</code></div>
-        <div className="simple-cpu-state"><label>SP / 临时栈顶</label><code>{address(machine.registers[7])}</code></div>
-        <div className="chip-branch"><span>执行状态</span><code>{machine.error || (machine.halted ? `已返回 ${machine.result}` : running ? '连续运行中' : '等待下一步')}</code></div>
-      </div> : <div className="diagram-chip">
+      {view === 'simple' ? <SimpleCpu machine={machine} running={running} /> : <div className="diagram-chip">
         <div className="chip-heading"><span><Cpu size={17} />{model.label} CPU CORE</span><small>教学执行快照</small></div>
         <div className="chip-control-row">
           <div className={`chip-module pc-module${active(!!branch?.taken)}`} data-testid="diagram-pc"><label>PC · 程序计数器</label><strong>{codeAddress(machine.pc)}</strong><small>{machine.halted ? '停止后的 PC' : '下一条取指地址'}</small></div>
@@ -90,7 +83,7 @@ export default function CpuDiagram({ program, machine, running, dirty }: { progr
         <div className={`chip-branch${active(!!branch)}`} data-testid="diagram-branch"><span>↳ 分支 / PC 更新</span><code>{branch ? `${branch.taken ? '已跳转' : '未跳转'} · 目标 ${codeAddress(branch.target)} → PC ${codeAddress(machine.pc)}` : event ? `${codeAddress(event.pc)} → ${codeAddress(machine.pc)}` : '等待执行'}</code></div>
       </div>}
 
-      <div className="diagram-bus memory-bus" aria-label="内存总线"><div className={`bus-track address-bus${active(!!memory)}`}><span>地址</span><b>→</b></div><div className={`bus-track data-bus${active(!!memory)}`}><span>数据</span><b>{memory?.direction === 'read' ? '←' : '→'}</b></div><div className={`bus-track control-bus${active(!!memory)}`}><span>读 / 写</span><b>→</b></div></div>
+      <div className="diagram-bus memory-bus" aria-label="内存总线"><div className={`bus-track address-bus${active(!!memory)}`}><span>地址</span><b>→</b></div><div className={`bus-track data-bus${memory?.direction === 'read' ? ' bus-reverse' : ''}${active(!!memory)}`}><span>数据</span><b>{memory?.direction === 'read' ? '←' : '→'}</b></div><div className={`bus-track control-bus${active(!!memory)}`}><span>读 / 写</span><b>→</b></div></div>
 
       <div className="diagram-memory data-memory">
         <div className="diagram-box-title">{memoryView === 'stack' ? '函数栈内存' : '数据存储器'} <small>{memoryView === 'stack' ? 'STACK MEMORY' : 'DATA / RAM'}</small></div>
