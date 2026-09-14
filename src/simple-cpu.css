@@ -1,0 +1,101 @@
+.diagram-simple .diagram-board { grid-template-columns: minmax(210px, 1fr) 36px minmax(380px, 1.7fr) 36px minmax(270px, 1.1fr); min-width: 960px; }
+.diagram-simple .diagram-scroll { background-color: #101b23; background-image: radial-gradient(#6ba6a522 1px, transparent 1px), radial-gradient(ellipse at center, #4b9c8610, transparent 65%); }
+.simple-cpu { --signal-blue: #8dc6ff; --signal-green: #a6e9b0; --signal-purple: #c4a6f4; display: flex; flex-direction: column; gap: 9px; min-width: 0; padding: 13px; border: 1px solid #4b766e; border-radius: 10px; background: linear-gradient(145deg, #203a3538, #131e28 60%); box-shadow: inset 0 1px #b5e8d312, 0 0 24px #73cfa609; }
+.simple-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; }
+.simple-heading > span { display: flex; align-items: center; gap: 7px; }
+.simple-heading > span:first-child { color: #b9dfcf; }
+.simple-heading strong { font: 12px var(--mono); }
+.simple-heading small { color: #7c9c9f; font: 8px var(--mono); letter-spacing: 1px; }
+.simple-clock { font-size: 9px; color: #9db4bd; white-space: nowrap; }
+.simple-clock svg { width: 29px; height: 14px; fill: none; stroke: #637f80; stroke-width: 1.5; }
+.simple-clock i, .simple-result i { height: 5px; width: 5px; border-radius: 50%; background: #6e8794; flex-shrink: 0; }
+.simple-instruction { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border: 1px solid #354c5e; background: #111d28; border-radius: 5px; min-width: 0; flex-shrink: 0; }
+.simple-instruction > span { font: 10px var(--mono); color: var(--signal-blue); white-space: nowrap; }
+.simple-instruction small { font: 9px 'DM Sans', sans-serif; color: #809ab0; margin-left: 5px; }
+.simple-instruction code { color: #c3d9ee; font: 10px/1.4 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.simple-silicon { display: block; width: 100%; flex: 1 0 auto; min-height: 150px; max-height: 340px; aspect-ratio: 520 / 250; overflow: visible; }
+.silicon-pins rect { fill: #728889; stroke: #a7b9a9; stroke-width: .5; }
+.silicon-package { stroke: #709387; stroke-width: 1.3; }
+.silicon-die { stroke: #456b68; }
+.silicon-screws { fill: #aacbb5; }
+.silicon-trace { stroke: #354a50; stroke-width: 2; stroke-linejoin: round; }
+.trace-address { color: var(--signal-blue); }
+.trace-data { color: var(--signal-green); }
+.trace-control { color: var(--signal-purple); }
+.silicon-trace.is-active { stroke: currentColor; filter: drop-shadow(0 0 3px currentColor); }
+.silicon-packet { stroke: #ecfff8; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 5 95; stroke-dashoffset: 5; filter: drop-shadow(0 0 4px currentColor); animation: silicon-flow .85s linear both; }
+.simple-cpu[data-status=running] .silicon-packet { animation-iteration-count: infinite; }
+.silicon-module > rect { fill: #192b36; stroke: #3b555e; stroke-width: 1.2; }
+.silicon-module.is-active > rect { fill: #203d38; stroke: #87be9d; }
+.silicon-cu.is-active > rect { fill: #2b293f; stroke: var(--signal-purple); }
+.silicon-pc.is-active > rect { fill: #1c3348; stroke: var(--signal-blue); }
+.simple-silicon text { font-family: var(--mono); }
+.simple-silicon .silicon-label { fill: #c2d5dc; font-size: 13px; font-weight: 500; }
+.simple-silicon .silicon-abbr { fill: #849fae; font-size: 11px; }
+.silicon-value { fill: #a6c5c3; font-size: 12px; }
+.silicon-module.is-active .silicon-value { fill: #dbefdf; }
+.silicon-address { fill: #a7c8e8; font-size: 11px; }
+.silicon-note { fill: #839da9; font-size: 10px; }
+.silicon-gates rect { fill: #655b80; }
+.is-active .silicon-gates rect { fill: #bea4e0; }
+.silicon-register-name { fill: #8aa8b8; font-size: 11px; }
+.silicon-register-value { fill: #c3d6dc; }
+.register-lit .silicon-register-name, .register-lit .silicon-register-value { fill: #b7fac7; }
+.silicon-alu > path { fill: #223a3e; stroke: #527776; stroke-width: 1.5; }
+.silicon-operator { fill: #8ebbb0; font-size: 24px; }
+.silicon-result { fill: #8caaa6; }
+.silicon-alu.is-active > path { fill: #2d5441; stroke: #b3f0bf; filter: drop-shadow(0 0 8px #8cdeb42b); }
+.silicon-alu.is-active .silicon-operator, .silicon-alu.is-active .silicon-result { fill: #d0ffce; }
+.silicon-sp { font-size: 9px; fill: #92b1b8; }
+.simple-cycle { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; border-top: 1px solid #30483f; padding-top: 8px; gap: 6px; color: #859aab; }
+.simple-cycle > span { display: flex; align-items: center; gap: 5px; font-size: 9px; white-space: nowrap; }
+.simple-cycle b { font: 8px var(--mono); color: #728c9e; background: #20323c; border-radius: 3px; padding: 3px; }
+.simple-cycle i { font: 16px/1 var(--mono); color: #526978; margin-left: 4px; }
+.simple-cycle.is-active > span { color: #c2e3cf; }
+.simple-cycle.is-active b { color: #b7debe; background: #a6e9b013; }
+.simple-cycle.is-active > span:first-child b { color: var(--signal-blue); background: #8dc6ff13; }
+.simple-cycle.is-active > span:nth-child(2) b { color: var(--signal-purple); background: #c4a6f413; }
+.simple-result { display: flex; align-items: baseline; gap: 6px; font: 9px/1.6 var(--mono); color: #9db9ad; min-width: 0; overflow-wrap: anywhere; flex-shrink: 0; }
+.simple-cpu[data-status=running] { border-color: #82b29a; box-shadow: inset 0 1px #b5e8d318, 0 0 22px #8cdeb411; }
+.simple-cpu[data-status=running] .simple-clock { color: #b5e8c0; }
+.simple-cpu[data-status=running] .simple-clock svg { stroke: #a6e9b0; stroke-dasharray: 20 5; animation: silicon-clock .9s linear infinite; }
+.simple-cpu[data-status=running] .simple-clock i { background: #b5f4c6; box-shadow: 0 0 7px #a6e9b080; }
+.simple-cpu[data-status=halted] .simple-clock i { background: #b5f4c6; }
+.simple-cpu[data-status=error] { border-color: #b97373; }
+.simple-cpu[data-status=error] .simple-clock, .simple-cpu[data-status=error] .simple-result { color: #e5aaa5; }
+.simple-cpu[data-status=error] .simple-clock i, .simple-cpu[data-status=error] .simple-result i { background: #ec9f9f; }
+.silicon-alu.is-error > path { stroke: #ec9f9f; fill: #493033; }
+.silicon-alu.is-error .silicon-result { fill: #ecb7b0; }
+.diagram-running .bus-track.bus-reverse.active { animation-direction: reverse; }
+@keyframes silicon-flow { 0% { stroke-dashoffset: 5; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { stroke-dashoffset: -100; opacity: 0; } }
+@keyframes silicon-clock { to { stroke-dashoffset: -25; } }
+@media (min-width: 1100px) and (min-height: 680px) {
+  .cpu-diagram-panel:not(.diagram-expanded) .diagram-chip.simple-cpu { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(100px, 1fr) auto auto; padding: 8px 10px; gap: 4px 10px; scrollbar-gutter: auto; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-heading small,
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-clock svg,
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-instruction small { display: none; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-heading strong { font-size: 11px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-silicon { grid-column: 1 / -1; height: 100%; min-height: 0; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-instruction { padding: 4px 7px; gap: 7px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-cycle { grid-column: 1 / -1; padding-top: 3px; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-result { grid-column: 1 / -1; }
+  .cpu-diagram-panel:not(.diagram-expanded) .simple-result > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (max-width: 700px) {
+  .diagram-simple .diagram-board { grid-template-columns: minmax(0, 1fr); min-width: 0; width: 100%; }
+  .diagram-simple .diagram-bus { flex-direction: row; justify-content: center; align-items: center; height: 48px; gap: 62px; }
+  .diagram-simple .bus-track { width: 3px; height: 26px; }
+  .diagram-simple .bus-track span { left: 10px; top: 7px; bottom: auto; width: auto; }
+  .diagram-simple .bus-track b { transform: rotate(90deg); top: 12px; right: -10px; }
+  .diagram-simple.diagram-running .bus-track.active { background: currentColor; animation: none; }
+  .diagram-simple .diagram-rom { max-height: 140px; overflow: auto; }
+  .simple-cpu { padding: 10px 8px; gap: 8px; }
+  .simple-heading small { display: none; }
+  .simple-cycle > span { gap: 3px; font-size: 8px; }
+  .simple-cycle i { margin-left: 0; }
+  .simple-cycle b { font-size: 7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .simple-cpu .silicon-packet { display: none; animation: none; }
+  .simple-cpu .simple-clock svg { animation: none; }
+}

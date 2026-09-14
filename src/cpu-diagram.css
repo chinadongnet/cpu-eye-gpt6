@@ -129,15 +129,6 @@
 .stack-footprint { font-size: 8px; color: #8b83a6; padding: 8px 0; }
 .stack-empty { font-size: 9px; color: #667f91; margin: 8px 3px; line-height: 1.8; }
 .stack-model-note { font-size: 8px; line-height: 1.8; color: #718497; margin: 5px 0 0; }
-.diagram-simple .diagram-board { grid-template-columns: minmax(250px, 1fr) 32px minmax(230px, .75fr) 32px minmax(290px, 1fr); min-width: 880px; }
-.simple-cpu { text-align: center; padding: 20px 15px; }
-.simple-cpu-icon { width: 70px; height: 70px; margin: 0 auto; display: grid; place-items: center; border: 1px solid #79a381; border-radius: 13px; color: #b5dfbd; background: #a6e9b00c; }
-.simple-cpu h3 { font: 16px var(--mono); color: #c0e3c8; margin: 13px 0 8px; }
-.simple-cpu > p { font-size: 9px; color: #799c86; margin-bottom: 20px; }
-.simple-cpu-state { text-align: left; padding: 10px 0; border-bottom: 1px solid #374a49; }
-.simple-cpu-state label { display: block; font-size: 9px; color: #829bab; margin-bottom: 6px; }
-.simple-cpu-state code { font: 11px/1.7 var(--mono); color: #b8d8cf; overflow-wrap: anywhere; }
-.simple-cpu-state strong { font-size: 10px; line-height: 1.8; font-weight: 400; color: #b6d9bd; }
 .diagram-simple .isa-title, .diagram-simple .diagram-isa { display: none; }
 .diagram-expanded .diagram-scroll { align-items: flex-start; }
 @media (max-width: 700px) { .cpu-diagram-panel > .panel-header { height: auto; min-height: 48px; padding: 9px 10px; flex-wrap: wrap; gap: 9px; } .cpu-diagram-panel .panel-tools { margin-left: auto; } .diagram-view-switch button { font-size: 9px; padding: 5px 8px; } }

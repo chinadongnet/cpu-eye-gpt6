@@ -4,6 +4,11 @@ import { createRequire } from 'node:module';
 
 const { version } = createRequire(import.meta.url)('../../package.json') as { version: string };
 
+test.beforeEach(async ({ page }) => {
+  // Exercise the local font fallback without depending on Google's font servers.
+  await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => route.abort());
+});
+
 test('编译、单步、运行、验证与模型切换', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -84,6 +89,7 @@ test('用户 class 示例编译运行、单步成员高亮和内存布局', asyn
 
 test('CPU 示意图按指令更新 PC、IR、ALU、实际地址并响应重置和架构切换', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('button', { name: '详细模式', exact: true }).click();
   await page.getByLabel('C++ 源代码编辑器').fill('int main() { int a = 3; a += 4; if (a == 0) { a = 9; } return a; }');
   await page.getByRole('button', { name: '编译', exact: true }).click();
   await expect(page.getByTestId('diagram-pc')).toContainText('0x00400000');
@@ -123,16 +129,17 @@ test('CPU 示意图按指令更新 PC、IR、ALU、实际地址并响应重置�
   await expect(page.getByTestId('diagram-alu')).toContainText('等待运算');
 });
 
-test('简单/详细模型切换保留执行状态，左右展示指令内存与 main 栈帧', async ({ page }) => {
+test('默认简单模式，切换详细模式保留执行状态，左右展示指令内存与 main 栈帧', async ({ page }) => {
   await page.goto('/');
+  await expect(page.getByRole('button', { name: '简单模式', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('simple-cpu')).toHaveAttribute('data-status', 'idle');
   await page.getByLabel('示例程序').selectOption('class-members');
   const single = page.getByRole('button', { name: '单步', exact: true });
   await single.click();
   await expect(page.getByTestId('stack-sp')).toHaveText('0x00007FF8');
   await expect(page.getByTestId('stack-values').locator('.stack-top strong')).toHaveText('0');
-  await page.getByRole('button', { name: '简单模型', exact: true }).click();
-  await expect(page.getByRole('button', { name: '简单模型', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('simple-cpu')).toContainText('0x00400004');
+  await expect(page.getByTestId('simple-registers')).toHaveClass(/is-active/);
   await expect(page.getByTestId('diagram-stack')).toContainText('main()');
   const rom = await page.locator('.instruction-memory').boundingBox();
   const stack = await page.locator('.data-memory').boundingBox();
@@ -142,7 +149,8 @@ test('简单/详细模型切换保留执行状态，左右展示指令内存与 
   await expect(x.locator('strong')).toHaveText('1');
   await expect(x).toHaveClass(/written/);
   await expect(page.getByTestId('stack-sp')).toHaveText('0x00008000');
-  await page.getByRole('button', { name: '详细模型', exact: true }).click();
+  await expect(page.getByTestId('simple-memory')).toContainText('WRITE 1');
+  await page.getByRole('button', { name: '详细模式', exact: true }).click();
   await expect(page.getByTestId('diagram-ir')).toContainText('MOV [a.x], RAX');
   await expect(x.locator('strong')).toHaveText('1');
   await page.getByRole('button', { name: '数据内存', exact: true }).click();
@@ -160,8 +168,83 @@ test('简单/详细模型切换保留执行状态，左右展示指令内存与 
   await expect(page.getByTestId('stack-values')).toContainText('栈为空');
   await expect(x.locator('strong')).toHaveText('0');
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: '简单模型', exact: true }).click();
+  await page.getByRole('button', { name: '简单模式', exact: true }).click();
+  await expect(page.getByTestId('simple-cpu')).toHaveAttribute('data-status', 'idle');
+  await expect(page.getByTestId('simple-ir')).toContainText('等待取指');
+  const chip = await page.getByTestId('simple-cpu').boundingBox();
+  const mobileStack = await page.locator('.data-memory').boundingBox();
+  expect(chip!.width).toBeLessThan(390);
+  expect(mobileStack!.y).toBeGreaterThan(chip!.y + chip!.height);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('简单芯片图按实际指令点亮运算、读写和跳转通路，重置清空快照', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('C++ 源代码编辑器').fill('int main() { int a = 3; a += 4; if (a == 0) { a = 9; } return a; }');
+  await page.getByRole('button', { name: '编译', exact: true }).click();
+  const chip = page.getByTestId('simple-cpu');
+  const single = page.getByRole('button', { name: '单步', exact: true });
+  await expect(chip.locator('.silicon-trace.is-active')).toHaveCount(0);
+  await single.click();
+  await expect(page.getByTestId('simple-ir')).toContainText('MOV RAX, 3');
+  await expect(page.getByTestId('simple-pc')).toContainText('0x00400004');
+  await expect(chip.locator('[data-route=fetch]')).toHaveClass(/is-active/);
+  await expect(page.getByTestId('simple-alu')).not.toHaveClass(/is-active/);
+  await single.click();
+  await expect(page.getByTestId('simple-memory')).toContainText('WRITE 3');
+  await expect(page.getByTestId('simple-memory')).toContainText('0x00001000');
+  await expect(chip.locator('[data-route=memory-bus]')).toHaveClass(/is-active/);
+  await single.click();
+  await expect(page.getByTestId('simple-memory')).toContainText('READ 3');
+  await expect(page.locator('.memory-bus .data-bus')).toHaveClass(/bus-reverse/);
+  await single.click();
+  await single.click();
+  await expect(page.getByTestId('simple-alu')).toHaveClass(/is-active/);
+  await expect(page.getByTestId('simple-result')).toHaveText('3 + 4 = 7');
+  await expect(chip.locator('[data-route=writeback]')).toHaveClass(/is-active/);
+  await expect(chip.locator('[data-route=memory-bus]')).not.toHaveClass(/is-active/);
+  for (let i = 0; i < 5; i++) await single.click();
+  await expect(page.getByTestId('simple-result')).toHaveText('已跳转 → 0x00400030');
+  await expect(chip.locator('[data-route=branch]')).toHaveClass(/is-active/);
+  await page.getByLabel('执行速度').selectOption('120');
+  await page.getByRole('button', { name: '运行', exact: true }).click();
+  await expect(chip).toHaveAttribute('data-status', 'halted');
+  await expect(page.getByTestId('simple-result')).toContainText('返回值 7');
+  await expect(chip.locator('.silicon-packet')).toHaveCount(0);
+  await page.getByLabel('CPU 架构').selectOption('arm64');
+  await expect(chip).toContainText('ARM64');
+  await single.click();
+  await expect(page.getByTestId('simple-ir')).toContainText('MOV X0, #3');
+  await page.getByRole('button', { name: '重置执行', exact: true }).click();
+  await expect(chip.locator('.silicon-trace.is-active')).toHaveCount(0);
+  await expect(page.getByTestId('simple-pc')).toContainText('0x00400000');
+});
+
+test('简单模式运行和暂停联动，减少动态效果与异常停止状态正确', async ({ page }) => {
+  await page.goto('/');
+  const chip = page.getByTestId('simple-cpu');
+  await page.getByLabel('执行速度').selectOption('12');
+  await page.getByRole('button', { name: '运行', exact: true }).click();
+  await expect(chip).toHaveAttribute('data-status', 'running');
+  await expect(chip.locator('.silicon-packet').nth(1)).toBeVisible();
+  await page.getByRole('button', { name: '暂停', exact: true }).click();
+  await expect(chip).toHaveAttribute('data-status', 'paused');
+  const pc = await page.getByTestId('simple-pc').textContent();
+  await expect.poll(() => chip.locator('.silicon-packet').first().evaluate(element => Number(getComputedStyle(element).opacity))).toBe(0);
+  await expect(page.getByTestId('simple-pc')).toHaveText(pc!);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: '单步', exact: true }).click();
+  await expect(chip.locator('.silicon-packet').first()).toHaveCSS('display', 'none');
+  await expect(chip.locator('[data-route=fetch]')).toHaveClass(/is-active/);
+  await page.getByLabel('C++ 源代码编辑器').fill('int main() { return 6 / 0; }');
+  await page.getByRole('button', { name: '编译', exact: true }).click();
+  await page.getByLabel('执行速度').selectOption('120');
+  await page.getByRole('button', { name: '运行', exact: true }).click();
+  await expect(chip).toHaveAttribute('data-status', 'error');
+  await expect(page.getByTestId('simple-result')).toContainText('除数不能为 0');
+  await expect(page.getByTestId('simple-alu')).toContainText('运算异常');
+  await expect(chip.locator('.silicon-trace.is-active')).toHaveCount(0);
+  await expect(chip.locator('.silicon-packet')).toHaveCount(0);
 });
 
 for (const viewport of [{ width: 1100, height: 700 }, { width: 1366, height: 768 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 }]) {
@@ -169,7 +252,7 @@ for (const viewport of [{ width: 1100, height: 700 }, { width: 1366, height: 768
     await page.setViewportSize(viewport);
     await page.goto('/');
     await page.getByLabel('示例程序').selectOption('sort');
-    for (const mode of ['详细模型', '简单模型']) {
+    for (const mode of ['详细模式', '简单模式']) {
       await page.getByRole('button', { name: mode, exact: true }).click();
       const layout = await page.evaluate(() => {
         const selectors = ['.toolbar', '.cpu-diagram-panel', '.editor-panel', '.assembly-panel', '.cpu-panel', '.bottom-panel', '.memory-panel'];
@@ -182,6 +265,11 @@ for (const viewport of [{ width: 1100, height: 700 }, { width: 1366, height: 768
       expect(layout.overflow).toBe(false);
       expect(layout.diagramOverflow).toBe(false);
       expect(layout.panels.filter(panel => panel.selector !== '.toolbar').every(panel => panel.visible)).toBe(true);
+      if (mode === '简单模式') {
+        const chip = page.getByTestId('simple-cpu');
+        expect(await chip.evaluate(element => element.scrollHeight <= element.clientHeight)).toBe(true);
+        await expect(page.getByTestId('simple-result')).toBeInViewport();
+      }
     }
     const editor = page.getByLabel('C++ 源代码编辑器');
     await editor.evaluate(element => { element.scrollTop = element.scrollHeight; element.dispatchEvent(new Event('scroll')); });
