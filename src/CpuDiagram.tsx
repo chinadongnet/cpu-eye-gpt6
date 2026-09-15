@@ -9,10 +9,10 @@ import InstructionStream from './InstructionStream';
 const address = (value: number) => `0x${hex(value)}`;
 const codeAddress = (pc: number) => address(0x400000 + pc * 4);
 const groups = [
-  { label: '传送', ops: ['CONST', 'LOAD', 'STORE'] },
+  { label: '传送', ops: ['CONST', 'LOAD', 'STORE', 'DROP', 'DUP'] },
   { label: '运算 / 逻辑', ops: ['BINARY', 'UNARY'] },
-  { label: '分支', ops: ['JZ', 'JMP'] },
-  { label: '输出 / 返回', ops: ['PRINT', 'HALT'] },
+  { label: '分支 / 调用', ops: ['JZ', 'JMP', 'CALL'] },
+  { label: '输出 / 返回', ops: ['PRINT', 'RET', 'HALT'] },
 ];
 
 export default function CpuDiagram({ program, machine, running, dirty }: { program: Program; machine: Machine; running: boolean; dirty: boolean }) {
@@ -77,7 +77,7 @@ export default function CpuDiagram({ program, machine, running, dirty }: { progr
         {memoryView === 'stack' && <StackMemory program={program} machine={machine} />}
         <div className={`diagram-access${active(!!memory)}`} data-testid="diagram-access"><span>{memory ? memory.direction === 'read' ? 'READ · 读取内存' : 'WRITE · 写入内存' : '总线空闲'}</span><strong>{memory ? address(memory.address) : '—'}</strong><code>{memory ? `${memory.name}${instruction?.indexed ? `[${memory.index}]` : ''} = ${memory.value}` : '执行 LOAD / STORE 时更新'}</code></div>
         {memoryView === 'ram' && <><div className="diagram-ram">{cells.slice(memoryStart, memoryStart + 5).map(cell => <div key={cell.address} className={memory?.address === cell.address ? 'selected' : ''}><div><code>{address(cell.address)}</code><span title={cell.name}>{cell.name}</span></div><div><strong>{cell.value}</strong><code>{[0, 1, 2, 3].map(byte => ((cell.value >>> (byte * 8)) & 255).toString(16).toUpperCase().padStart(2, '0')).join(' ')}</code></div></div>)}{!cells.length && <p>程序未声明数据变量</p>}</div><div className="diagram-memory-note">32 位数据 · 小端字节序<br />自动跟随当前访问地址</div></>}
-        <div className="diagram-io"><span>OUTPUT / RETURN</span><code>{instruction?.op === 'PRINT' ? `stdout ← ${event?.operands[0]}` : machine.halted ? machine.error || `return ${machine.result}` : '—'}</code></div>
+        <div className="diagram-io"><span>OUTPUT / RETURN</span><code>{machine.error || (instruction?.op === 'PRINT' ? `stdout ← ${event?.operands[0]}` : instruction?.op === 'RET' ? `return ${event?.result}` : machine.halted ? `return ${machine.result}` : '—')}</code></div>
       </div>
     </div></div>
     <div className="diagram-footer"><span>{machine.trace.at(-1)?.detail || 'PC 指向下一条指令；IR 保留最近执行指令。'}</span><span>一次单步 = 一条教学指令；连线表示本次参与的数据通路</span></div>

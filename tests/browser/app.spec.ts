@@ -87,6 +87,61 @@ test('用户 class 示例编译运行、单步成员高亮和内存布局', asyn
   await expect(page.locator('.validation-summary')).toContainText('4 / 4 项预期结果一致');
 });
 
+test('用户函数示例编译后展示调用帧、参数和返回值，重置与切换架构正常', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByLabel('C++ 源代码编辑器').fill(`int func(int x, int y)
+{
+    return x + y;
+}
+
+int main() {
+    return func(1, 2);
+}`);
+  await page.getByRole('button', { name: '编译', exact: true }).click();
+  await expect(page.locator('.status-badge')).toHaveText('就绪');
+  await expect(page.getByTestId('instruction-stream')).toContainText('CALL func');
+  const single = page.getByRole('button', { name: '单步', exact: true });
+  await single.click();
+  await single.click();
+  await expect(page.getByTestId('stack-values').locator('strong')).toHaveText(['1', '2']);
+  await single.click();
+  await expect(page.getByLabel('函数调用链').getByRole('listitem')).toHaveCount(2);
+  await expect(page.locator('.stack-frame-header')).toContainText('func()');
+  await expect(page.locator('.stack-frame-header')).toContainText('2 个栈帧');
+  await expect(page.locator('.stack-frame-meta')).toContainText('返回至 0x0040000C');
+  await expect(page.getByTestId('simple-result')).toContainText('调用 func(1, 2)');
+  await single.click();
+  await single.click();
+  const locals = page.getByRole('list', { name: 'func 局部数据', exact: true });
+  await expect(locals.locator('.stack-local-value strong')).toHaveText(['1', '2']);
+  await expect(locals.getByRole('listitem').first()).toHaveClass(/written/);
+  await expect(locals.getByRole('listitem').first()).toContainText('参数');
+  await expect(page.getByTestId('stack-sp')).toHaveText('0x00008000');
+  for (let i = 0; i < 4; i++) await single.click();
+  await expect(page.locator('.stack-frame-header')).toContainText('main()');
+  await expect(page.getByLabel('函数调用链')).toHaveCount(0);
+  await expect(page.getByTestId('simple-result')).toContainText('func 返回 3 → main');
+  await expect(page.getByTestId('stack-values').locator('strong')).toHaveText(['3']);
+  await single.click();
+  await expect(page.locator('.status-badge')).toHaveText('已完成');
+  await expect(page.locator('.console-content')).toContainText('返回值 3');
+  await page.getByRole('button', { name: '重置执行', exact: true }).click();
+  await expect(page.getByTestId('stack-values')).toContainText('栈为空');
+  await page.getByLabel('CPU 架构').selectOption('arm64');
+  await expect(page.getByTestId('instruction-stream')).toContainText('BL func');
+  for (let i = 0; i < 3; i++) await single.click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByLabel('函数调用链')).toContainText('func()');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByLabel('执行速度').selectOption('120');
+  await page.getByRole('button', { name: '运行', exact: true }).click();
+  await expect(page.locator('.status-badge')).toHaveText('已完成');
+  await expect(page.locator('.console-content')).toContainText('返回值 3');
+  expect(errors).toEqual([]);
+});
+
 test('CPU 示意图按指令更新 PC、IR、ALU、实际地址并响应重置和架构切换', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '详细模式', exact: true }).click();

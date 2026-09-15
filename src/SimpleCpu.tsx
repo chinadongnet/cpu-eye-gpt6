@@ -17,8 +17,9 @@ export default function SimpleCpu({ machine, running }: { machine: Machine; runn
   const writeback = event?.result !== undefined;
   const status = machine.error ? 'error' : machine.halted ? 'halted' : running ? 'running' : event ? 'paused' : 'idle';
   const statusText = { error: '执行异常', halted: '已完成', running: '运行中', paused: '单步快照', idle: '准备就绪' }[status];
-  const operation = alu ? '算术 / 逻辑' : read ? '读取内存' : write ? '写入内存' : branch ? '分支判断' : instruction?.op === 'PRINT' ? '标准输出' : instruction?.op === 'HALT' ? '程序返回' : instruction ? '数据传送' : '等待指令';
-  const summary = machine.error || (alu ? `${event?.operands.join(` ${instruction.operator} `)} = ${event?.result}` : branch ? `${branch.taken ? '已跳转' : '未跳转'} → ${codeAddress(machine.pc)}` : machine.halted ? `程序已结束 · 返回值 ${machine.result}` : machine.trace.at(-1)?.detail || '等待第一条指令唤醒数据通路');
+  const call = instruction?.op === 'CALL', returned = instruction?.op === 'RET';
+  const operation = call ? '函数调用' : returned ? '函数返回' : alu ? '算术 / 逻辑' : read ? '读取内存' : write ? '写入内存' : branch ? '分支判断' : instruction?.op === 'PRINT' ? '标准输出' : instruction?.op === 'HALT' ? '程序返回' : instruction ? '数据传送' : '等待指令';
+  const summary = machine.error || (call || returned ? machine.trace.at(-1)?.detail : alu ? `${event?.operands.join(` ${instruction.operator} `)} = ${event?.result}` : branch ? `${branch.taken ? '已跳转' : '未跳转'} → ${codeAddress(machine.pc)}` : machine.halted ? `程序已结束 · 返回值 ${machine.result}` : machine.trace.at(-1)?.detail || '等待第一条指令唤醒数据通路');
   const stages = ['取指', '译码', alu ? '运算' : memory ? '访存' : branch ? '分支' : '执行', branch ? '更新 PC' : write ? '写入内存' : instruction?.op === 'PRINT' ? '输出' : instruction?.op === 'HALT' ? '返回' : '写回'];
   const active = (condition: boolean) => condition && valid ? ' is-active' : '';
   // Paths follow this teaching engine's execution event, including writes whose value is unchanged.

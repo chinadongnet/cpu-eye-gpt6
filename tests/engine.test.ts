@@ -183,3 +183,135 @@ test('CPU 异常快照不显示成功结果或残留内存访问', () => {
   assert.equal(m.execution!.memory, undefined);
   assert.match(m.execution!.error!, /除数/);
 });
+
+const functionSource = `int func(int x, int y)
+{
+    return x + y;
+}
+
+int main() {
+    return func(1, 2);
+}`;
+
+for (const arch of Object.keys(architectures) as Architecture[]) {
+  test(`${arch}: 用户函数示例从 main 进入，按值传参并返回 3`, () => {
+    const p = compile(functionSource);
+    const callPc = p.instructions.findIndex(instruction => instruction.op === 'CALL');
+    let before = createMachine(p, arch);
+    assert.equal(p.functions.find(fn => fn.name === 'main')!.entry, 0);
+    assert.equal(p.instructions[before.pc].line, 7);
+    while (before.pc !== callPc) before = step(p, before);
+    const called = step(p, before);
+    assert.deepEqual(before.frames.map(frame => frame.name), ['main']);
+    assert.deepEqual(called.frames, [before.frames[0], { name: 'func', returnPc: callPc + 1, stackBase: 0 }]);
+    assert.deepEqual(called.execution!.operands, [1, 2]);
+    assert.equal(called.pc, p.functions.find(fn => fn.name === 'func')!.entry);
+    assert.equal(called.execution!.nextPc, called.pc);
+    assert.equal(called.execution!.branch!.target, called.pc);
+    assert.match(instructionText(p.instructions[callPc], arch), arch.startsWith('arm') ? /^BL func/ : /^CALL func/);
+    const y = step(p, called), x = step(p, y);
+    assert.deepEqual(called.memory['func::y'], [0]);
+    assert.deepEqual(y.changedMemory, ['func::y:0']);
+    assert.deepEqual(x.memory['func::x'], [1]);
+    assert.deepEqual(x.memory['func::y'], [2]);
+    assert.equal(x.registers[7], 0x8000);
+    let returned = x;
+    while (returned.frames.length > 1) returned = step(p, returned);
+    assert.equal(returned.halted, false);
+    assert.equal(returned.pc, callPc + 1);
+    assert.deepEqual(returned.stack, [3]);
+    assert.equal(returned.registers[7], 0x8000 - architectures[arch].bits / 8);
+    assert.equal(returned.execution!.result, 3);
+    const done = step(p, returned);
+    assert.equal(done.halted, true);
+    assert.equal(done.error, undefined);
+    assert.equal(done.result, 3);
+    assert.deepEqual(done.stack, []);
+    assert.equal(done.registers[7], 0x8000);
+  });
+}
+
+test('嵌套和重复调用保留调用方临时值，各函数的同名参数与对象独立', () => {
+  const p = compile(`
+struct Box { int values[2]; };
+int combine(int x, int y) { return x * 10 + y; }
+int wrap(int x) { Box box; box.values[1] = x; x += 1; return box.values[1] + combine(x, 2); }
+int main(void) {
+    int x = 4;
+    Box box;
+    box.values[1] = 7;
+    int result = 100 + combine(wrap(x), combine(2, 3)) + wrap(1);
+    return result + x + box.values[1];
+}`);
+  let m = createMachine(p, 'arm64'), maxDepth = 1;
+  while (!m.halted) { m = step(p, m); maxDepth = Math.max(maxDepth, m.frames.length); }
+  assert.equal(m.error, undefined);
+  assert.equal(m.result, 717);
+  assert.equal(maxDepth, 3);
+  assert.deepEqual(m.memory.x, [4]);
+  assert.deepEqual(m.memory['box.values'], [0, 7]);
+  assert.deepEqual(m.memory['wrap::box.values'], [0, 1]);
+  assert.deepEqual(m.stack, []);
+});
+
+test('函数调用可用于循环、条件、数组下标、cout 和独立语句，短路不执行调用', () => {
+  const m = run(compile(`
+int echo(int x) { std::cout << x; return x; }
+int zero(void) { return 0; }
+int fail() { return 1 / 0; }
+int main() {
+    int data[2] = {4, 8};
+    data[echo(1)] += echo(5);
+    for (int i = 0; i < 2; i++) { echo(i); }
+    if (zero() || echo(9)) { std::cout << echo(data[1]); }
+    int skipped = 0 && fail();
+    return (1 || fail()) + data[zero()];
+}`), 'x86');
+  assert.equal(m.error, undefined);
+  assert.equal(m.result, 5);
+  assert.deepEqual(m.output, [1, 5, 0, 1, 9, 13, 13]);
+  assert.deepEqual(m.memory.data, [4, 13]);
+  assert.deepEqual(m.stack, []);
+});
+
+test('函数提前返回、跨定义顺序链接和重复调用的局部数据初始化', () => {
+  const m = run(compile(`
+int main() { int result = select(1) + select(0); return result + 10; }
+int select(bool flag) {
+    if (flag) { int value = 7; return value; }
+    return value;
+}`), 'x64');
+  assert.equal(m.error, undefined);
+  assert.equal(m.result, 17);
+  assert.deepEqual(m.memory['select::value'], [0]);
+  assert.deepEqual(m.stack, []);
+});
+
+test('函数定义、作用域、参数数量和不支持的调用有明确诊断', () => {
+  assert.throws(() => compile('int main() { return missing(1); }'), /第 1 行：函数 missing 未定义/);
+  assert.throws(() => compile('int f(int x) { return x; } int main() { return f(); }'), /需要 1 个参数，实际传入 0 个/);
+  assert.throws(() => compile('int f() { return 0; } int main() { return f(1); }'), /需要 0 个参数，实际传入 1 个/);
+  assert.throws(() => compile('int f(int x, int x) { return x; } int main() {}'), /重复的参数名/);
+  assert.throws(() => compile('int f(int x) { int x; return x; } int main() {}'), /同名变量/);
+  assert.throws(() => compile('int f() { return 0; } int f() { return 1; } int main() {}'), /重复的函数定义/);
+  assert.throws(() => compile('int f() { return 1; }'), /缺少.*main/);
+  assert.throws(() => compile('int main(int x) { return x; }'), /入口须为/);
+  assert.throws(() => compile('int main() { return main(); }'), /不能调用入口函数/);
+  assert.throws(() => compile('int f() { return x; } int main() { int x = 1; return f(); }'), /变量 x 未声明/);
+  assert.throws(() => compile('int f() { return 1; } int main() { int f; return f(); }'), /不能作为函数调用/);
+  assert.throws(() => compile('int f(int x[2]) { return 0; } int main() {}'), /参数暂不支持数组/);
+  assert.throws(() => compile('int f(int x); int main() {}'), /暂不支持函数原型/);
+  assert.throws(() => compile('int f() { return f(); } int main() { return f(); }'), /不支持递归调用/);
+  assert.throws(() => compile('int f() { return g(); } int g() { return f(); } int main() { return f(); }'), /不支持递归调用/);
+});
+
+test('被调函数缺少返回值或发生异常时保留调用帧和调用方求值栈', () => {
+  const missing = run(compile('int f(int x) { if (x) { return 3; } } int main() { return 7 + f(0); }'), 'arm32');
+  assert.match(missing.error!, /函数 f 结束时未返回整数值/);
+  assert.deepEqual(missing.stack, [7]);
+  assert.deepEqual(missing.frames.map(frame => frame.name), ['main', 'f']);
+  const failed = run(compile('int f(int x) { return 1 / x; } int main() { return 7 + f(0); }'), 'x64');
+  assert.match(failed.error!, /除数不能为 0/);
+  assert.deepEqual(failed.stack, [7]);
+  assert.equal(failed.execution!.result, undefined);
+});

@@ -10,8 +10,10 @@ export default function StackMemory({ program, machine }: { program: Program; ma
   const valuesRef = useRef<HTMLDivElement>(null);
   const word = architectures[machine.arch].bits / 8;
   const access = machine.execution?.memory;
-  const locals = program.variables.flatMap(variable => machine.memory[variable.name].map((value, index) => ({
-    name: variable.size > 1 ? `${variable.name}[${index}]` : variable.name,
+  const frame = machine.frames.at(-1)!;
+  const fn = program.functions.find(item => item.name === frame.name)!;
+  const locals = program.variables.filter(variable => variable.functionName === frame.name).flatMap(variable => machine.memory[variable.name].map((value, index) => ({
+    name: variable.size > 1 ? `${variable.localName}[${index}]` : variable.localName, parameter: variable.parameter,
     address: variable.address + index * 4, value, key: `${variable.name}:${index}`,
   })));
   useEffect(() => {
@@ -28,18 +30,21 @@ export default function StackMemory({ program, machine }: { program: Program; ma
   }, [machine.stack.length, program, machine.arch]);
 
   return <div className="stack-memory-view" data-testid="diagram-stack">
+    {machine.frames.length > 1 && <ol className="stack-call-chain" aria-label="函数调用链">
+      {machine.frames.map((item, index) => <li key={item.name} aria-current={item === frame ? 'step' : undefined}><code>{item.name}()</code><span>{item === frame ? '当前执行' : '等待返回'} · FRAME {String(index + 1).padStart(2, '0')}</span></li>)}
+    </ol>}
     <div className="stack-frame" data-state={machine.error ? 'error' : machine.halted ? 'returned' : 'active'}>
       <div className="stack-frame-header">
-        <div className="stack-frame-name"><Layers3 size={15} aria-hidden="true" /><strong>main()</strong><small>FRAME 01</small></div>
-        <span><i />{machine.error ? '异常暂停' : machine.halted ? '已返回 · 最终快照' : machine.cycles ? '执行中 · 1 个栈帧' : '入口帧 · 就绪'}</span>
+        <div className="stack-frame-name"><Layers3 size={15} aria-hidden="true" /><strong>{frame.name}()</strong><small>FRAME {String(machine.frames.length).padStart(2, '0')}</small></div>
+        <span><i />{machine.error ? '异常暂停' : machine.halted ? '已返回 · 最终快照' : machine.cycles ? `执行中 · ${machine.frames.length} 个栈帧` : '入口帧 · 就绪'}</span>
       </div>
       <div className="stack-frame-body">
         <div className="stack-locals-section">
-          <div className="stack-section-title"><span>局部变量 / 对象成员</span><small>{locals.length * 4} B 数据</small></div>
-          <div className="stack-local-list" ref={localsRef} role="list" aria-label="main 局部数据">
+          <div className="stack-section-title"><span>参数 / 局部变量 / 对象成员</span><small>{locals.length * 4} B 数据</small></div>
+          <div className="stack-local-list" ref={localsRef} role="list" aria-label={`${frame.name} 局部数据`}>
             {locals.map(cell => <div key={cell.key} role="listitem" data-accessed={access?.address === cell.address} className={`stack-local-row ${access?.address === cell.address ? 'accessed' : ''} ${machine.changedMemory.includes(cell.key) ? 'written' : ''}`}>
               <div className="stack-local-value"><span title={cell.name}>{cell.name}</span><strong>{cell.value}</strong></div>
-              <div className="stack-local-address"><code>{address(cell.address)}</code><small>{machine.changedMemory.includes(cell.key) ? '写入' : access?.address === cell.address ? '读取' : '4 B'}</small></div>
+              <div className="stack-local-address"><code>{address(cell.address)}</code><small>{cell.parameter ? '参数 · ' : ''}{machine.changedMemory.includes(cell.key) ? '写入' : access?.address === cell.address ? '读取' : '4 B'}</small></div>
               <small className="stack-local-bytes">{[0, 1, 2, 3].map(byte => ((cell.value >>> (byte * 8)) & 255).toString(16).toUpperCase().padStart(2, '0')).join(' ')}</small>
             </div>)}
             {!locals.length && <p className="stack-empty">当前函数没有局部变量</p>}
@@ -62,8 +67,8 @@ export default function StackMemory({ program, machine }: { program: Program; ma
         </div>
         <div className="stack-footprint">后进先出 LIFO <span>每槽 {word} B</span></div>
       </div>
-      <div className="stack-frame-meta"><span>入口 <code>0x00400000</code></span><span>返回至 <code>浏览器宿主</code></span></div>
+      <div className="stack-frame-meta"><span>入口 <code>{address(0x400000 + fn.entry * 4)}</code></span><span>返回至 <code>{frame.returnPc === null ? '浏览器宿主' : address(0x400000 + frame.returnPc * 4)}</code></span></div>
     </div>
-    <p className="stack-model-note">main 教学帧：局部数据地址与解释器求值栈分别显示。当前支持 main 单帧，不模拟原生 ABI、CALL / RET 返回地址栈或递归调用。</p>
+    <p className="stack-model-note">教学调用帧：展示当前函数参数、局部数据和调用链。参数先进入求值栈，再逐项写入局部数据；返回地址单独保存，不计入 SP。各函数使用独立固定数据区，暂不支持递归或原生 ABI。</p>
   </div>;
 }
