@@ -33,7 +33,7 @@ export default function InstructionStream({ program, machine, dirty, expanded }:
         const next = !machine.halted && pc === machine.pc, executed = pc === machine.lastPc;
         return <div key={pc} className={`stream-row${next ? ' is-next' : ''}${executed ? ' is-executed' : ''}`} data-pc={pc} data-focused={pc === focusPc} aria-current={next ? 'step' : undefined} title={`0x${hex(0x400000 + pc * 4)} · C++ 第 ${instruction.line} 行 · ${text}${next ? ' · 下一条指令 PC' : ''}${executed ? ' · 最近执行 IR' : ''}`}>
           <span className="stream-address">{(0x400000 + pc * 4).toString(16).toUpperCase()}</span>
-          <code><b className={['JMP', 'JZ'].includes(instruction.op) ? 'stream-branch' : instruction.op === 'STORE' ? 'stream-store' : ''}>{space < 0 ? text : text.slice(0, space)}</b>{space < 0 ? '' : text.slice(space)}</code>
+          <code><b className={['JMP', 'JZ', 'CALL', 'RET'].includes(instruction.op) ? 'stream-branch' : instruction.op === 'STORE' ? 'stream-store' : ''}>{space < 0 ? text : text.slice(0, space)}</b>{space < 0 ? '' : text.slice(space)}</code>
           <span className="stream-source">{instruction.line}</span>
           <span className={`stream-marker${next ? ' marker-pc' : executed ? ' marker-ir' : ''}`}>{next && executed ? 'PC·IR' : next ? 'PC' : executed ? 'IR' : ''}</span>
         </div>;

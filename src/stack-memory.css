@@ -1,4 +1,8 @@
 .stack-memory-view { min-width: 0; padding: 2px 6px 0 0; }
+.stack-call-chain { display: grid; gap: 5px; max-height: 100px; overflow: auto; list-style: none; padding: 0; margin: 0 0 10px; }
+.stack-call-chain li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; padding: 6px 8px; border-left: 2px solid #635275; background: #24212d; color: #a999bc; font-size: 8px; }
+.stack-call-chain li[aria-current] { border-color: #a6e9b0; background: #24342e; color: #c5e8ce; }
+.stack-call-chain code, .stack-frame-name strong { overflow-wrap: anywhere; min-width: 0; }
 .stack-frame { position: relative; isolation: isolate; border: 1px solid #496355; border-radius: 7px; background: #141e23; box-shadow: 3px 3px 0 #20302b, 4px 4px 0 #415b4d, 6px 6px 0 #1a2523, 7px 7px 0 #344a40; }
 .stack-frame-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; padding: 9px 10px; border-bottom: 1px solid #3b5448; border-radius: 6px 6px 0 0; background: linear-gradient(110deg, #294137, #1b2c29); }
 .stack-frame-name { display: flex; align-items: center; gap: 7px; color: #a6d8b3; }

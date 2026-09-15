@@ -10,11 +10,13 @@ type Token = { value: string; line: number };
 type Access = 'public' | 'private' | 'protected';
 type Field = { name: string; size: number; access: Access; line: number };
 type ClassDefinition = { name: string; fields: Field[] };
-type Expr = { kind: 'number'; value: number; line: number } | { kind: 'variable'; name: string; index?: Expr; line: number } | { kind: 'binary'; op: string; left: Expr; right: Expr; line: number } | { kind: 'unary'; op: string; value: Expr; line: number };
-type Statement = { kind: 'block'; body: Statement[]; line: number } | { kind: 'declare'; name: string; size: number; values: Expr[]; line: number } | { kind: 'object'; name: string; definition: ClassDefinition; line: number } | { kind: 'assign'; target: Extract<Expr, { kind: 'variable' }>; value: Expr; op: string; line: number } | { kind: 'if'; condition: Expr; yes: Statement; no?: Statement; line: number } | { kind: 'while'; condition: Expr; body: Statement; line: number } | { kind: 'for'; init: Statement; condition: Expr; update: Statement; body: Statement; line: number } | { kind: 'return'; value: Expr; line: number } | { kind: 'print'; values: Expr[]; line: number };
-export type Instruction = { op: 'CONST' | 'LOAD' | 'STORE' | 'BINARY' | 'UNARY' | 'JZ' | 'JMP' | 'PRINT' | 'HALT'; line: number; value?: number; name?: string; operator?: string; target?: number; indexed?: boolean };
-export type Variable = { name: string; size: number; address: number };
-export type Program = { instructions: Instruction[]; variables: Variable[]; source: string };
+type Expr = { kind: 'number'; value: number; line: number } | { kind: 'variable'; name: string; index?: Expr; line: number } | { kind: 'call'; name: string; args: Expr[]; line: number } | { kind: 'binary'; op: string; left: Expr; right: Expr; line: number } | { kind: 'unary'; op: string; value: Expr; line: number };
+type Statement = { kind: 'block'; body: Statement[]; line: number } | { kind: 'declare'; name: string; size: number; values: Expr[]; line: number } | { kind: 'object'; name: string; definition: ClassDefinition; line: number } | { kind: 'assign'; target: Extract<Expr, { kind: 'variable' }>; value: Expr; op: string; line: number } | { kind: 'if'; condition: Expr; yes: Statement; no?: Statement; line: number } | { kind: 'while'; condition: Expr; body: Statement; line: number } | { kind: 'for'; init: Statement; condition: Expr; update: Statement; body: Statement; line: number } | { kind: 'return'; value: Expr; line: number } | { kind: 'expression'; value: Expr; line: number } | { kind: 'print'; values: Expr[]; line: number };
+type FunctionDefinition = { name: string; parameters: { name: string; line: number }[]; body: Statement; line: number; endLine: number };
+export type Instruction = { op: 'CONST' | 'LOAD' | 'STORE' | 'BINARY' | 'UNARY' | 'JZ' | 'JMP' | 'PRINT' | 'CALL' | 'RET' | 'DROP' | 'DUP' | 'HALT'; line: number; value?: number; name?: string; operator?: string; target?: number; indexed?: boolean };
+export type Variable = { name: string; size: number; address: number; functionName: string; localName: string; parameter?: boolean };
+export type FunctionInfo = { name: string; entry: number; parameters: string[] };
+export type Program = { instructions: Instruction[]; variables: Variable[]; functions: FunctionInfo[]; source: string };
 
 function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
@@ -47,13 +49,34 @@ class Parser {
   private expect(value: string) { if (!this.accept(value)) this.fail(`需要 “${value}”，实际是 “${this.token.value}”`); }
   private fail(message: string): never { throw new Error(`第 ${this.token.line} 行：${message}`); }
   private identifier() { const token = this.take(); if (!/^[A-Za-z_]\w*$/.test(token.value)) this.fail('需要变量名'); return token.value; }
-  parse(): Statement {
-    while (this.is('using') || this.is('class') || this.is('struct')) {
+  parse(): FunctionDefinition[] {
+    const functions: FunctionDefinition[] = [];
+    while (!this.is('<eof>')) {
       if (this.accept('using')) { this.expect('namespace'); this.expect('std'); this.expect(';'); }
-      else this.classDefinition();
+      else if (this.is('class') || this.is('struct')) this.classDefinition();
+      else {
+        const line = this.token.line;
+        this.expect('int'); const name = this.identifier(); this.expect('(');
+        if (functions.some(fn => fn.name === name)) this.fail(`重复的函数定义：${name}，暂不支持函数重载`);
+        const parameters: FunctionDefinition['parameters'] = [];
+        if (!this.is(')') && !this.accept('void')) {
+          do {
+            if (!this.accept('int') && !this.accept('bool')) this.fail('函数参数仅支持 int / bool 按值传递');
+            const parameterLine = this.token.line, parameterName = this.identifier();
+            if (parameters.some(parameter => parameter.name === parameterName)) this.fail(`重复的参数名：${parameterName}`);
+            if (this.is('[')) this.fail('函数参数暂不支持数组，请传入数组元素');
+            parameters.push({ name: parameterName, line: parameterLine });
+          } while (this.accept(','));
+        }
+        this.expect(')');
+        if (name === 'main' && parameters.length) this.fail('入口须为 int main() 或 int main(void)');
+        if (this.is(';')) this.fail('教学子集暂不支持函数原型，请提供完整函数定义');
+        const body = this.block(), endLine = this.tokens[this.pos - 1].line;
+        functions.push({ name, parameters, body, line, endLine });
+      }
     }
-    this.expect('int'); this.expect('main'); this.expect('('); this.accept('void'); this.expect(')');
-    const body = this.block(); this.expect('<eof>'); return body;
+    if (!functions.some(fn => fn.name === 'main')) this.fail('缺少 int main() 入口函数');
+    return functions;
   }
   private arraySize() {
     if (!this.accept('[')) return 1;
@@ -89,8 +112,13 @@ class Parser {
     let index: Expr | undefined;
     if (this.accept('[')) { index = this.expression(); this.expect(']'); }
     if (this.is('.')) this.fail('教学子集暂不支持嵌套成员或对象数组访问');
-    if (this.is('(')) this.fail('教学子集暂不支持函数或成员函数调用');
+    if (this.is('(')) this.fail('教学子集暂不支持成员函数调用');
     return { kind: 'variable', name, index, line };
+  }
+  private call(name: string, line: number): Extract<Expr, { kind: 'call' }> {
+    this.expect('('); const args: Expr[] = [];
+    if (!this.is(')')) { do { args.push(this.expression()); } while (this.accept(',')); }
+    this.expect(')'); return { kind: 'call', name, args, line };
   }
   private block(): Statement {
     const line = this.token.line; this.expect('{'); const body: Statement[] = [];
@@ -138,7 +166,9 @@ class Parser {
       if (values.length > size) this.fail('数组初始化值过多');
       return { kind: 'declare', name, size, values, line };
     }
-    const target = this.variable(this.identifier(), line);
+    const name = this.identifier();
+    if (this.is('(')) return { kind: 'expression', value: this.call(name, line), line };
+    const target = this.variable(name, line);
     const op = this.take().value;
     if (op === '++' || op === '--') return { kind: 'assign', target, op: op === '++' ? '+=' : '-=', value: { kind: 'number', value: 1, line }, line };
     if (!['=', '+=', '-=', '*=', '/='].includes(op)) this.fail(`不支持的赋值运算 ${op}`);
@@ -154,7 +184,7 @@ class Parser {
     }
     else if (/^[A-Za-z_]\w*$/.test(token.value)) {
       if (token.value === 'true' || token.value === 'false') left = { kind: 'number', value: Number(token.value === 'true'), line: token.line };
-      else left = this.variable(token.value, token.line);
+      else left = this.is('(') ? this.call(token.value, token.line) : this.variable(token.value, token.line);
     } else this.fail(`无效表达式 “${token.value}”`);
     const precedence: Record<string, number> = { '||': 1, '&&': 2, '|': 3, '^': 4, '&': 5, '==': 6, '!=': 6, '<': 7, '>': 7, '<=': 7, '>=': 7, '<<': 8, '>>': 8, '+': 9, '-': 9, '*': 10, '/': 10, '%': 10 };
     while (precedence[this.token.value] !== undefined && precedence[this.token.value] >= min) {
@@ -171,9 +201,20 @@ export function compile(source: string): Program {
   if (source.length > 30000) throw new Error('程序超过 30,000 字符限制');
   const ast = new Parser(tokenize(source)).parse();
   const instructions: Instruction[] = [], variables: Variable[] = [];
+  const functions: FunctionInfo[] = ast.map(fn => ({ name: fn.name, entry: 0, parameters: fn.parameters.map(parameter => `${fn.name}::${parameter.name}`) }));
+  const functionMap = new Map(functions.map(fn => [fn.name, fn]));
+  const calls = new Map<string, Instruction[]>(functions.map(fn => [fn.name, []]));
+  let currentFunction = 'main';
+  const storageName = (name: string) => currentFunction === 'main' ? name : `${currentFunction}::${name}`;
   const symbols = new Map<string, Variable>(); let address = 0x1000;
   const objects = new Map<string, ClassDefinition>();
   const emit = (instruction: Instruction) => { instructions.push(instruction); return instructions.length - 1; };
+  const allocate = (name: string, size: number, line: number, parameter = false) => {
+    if (symbols.has(name) || objects.has(name)) throw new Error(`第 ${line} 行：教学子集不支持同名变量或变量遮蔽：${name}`);
+    if (address + size * 4 > 0x2000) throw new Error('变量内存超过 4 KiB');
+    const variable: Variable = { name: storageName(name), localName: name, functionName: currentFunction, size, address, parameter };
+    symbols.set(name, variable); variables.push(variable); address += size * 4;
+  };
   const check = (name: string, line: number) => {
     if (objects.has(name)) throw new Error(`第 ${line} 行：对象 ${name} 不能作为整数使用，请访问具体成员`);
     if (name.includes('.')) {
@@ -181,14 +222,24 @@ export function compile(source: string): Program {
       if (!definition) throw new Error(`第 ${line} 行：${symbols.has(objectName) ? `${objectName} 不是类对象` : `对象 ${objectName} 未声明`}`);
       const field = definition.fields.find(item => item.name === fieldName);
       if (!field) throw new Error(`第 ${line} 行：类 ${definition.name} 没有成员 ${fieldName}`);
-      if (field.access !== 'public') throw new Error(`第 ${line} 行：成员 ${name} 为 ${field.access}，不能在 main 中访问`);
+      if (field.access !== 'public') throw new Error(`第 ${line} 行：成员 ${name} 为 ${field.access}，不能在 ${currentFunction} 中访问`);
     }
     if (!symbols.has(name)) throw new Error(`第 ${line} 行：变量 ${name} 未声明`);
   };
   const expression = (expr: Expr): void => {
     const line = expr.line;
     if (expr.kind === 'number') emit({ op: 'CONST', value: expr.value, line });
-    if (expr.kind === 'variable') { check(expr.name, line); if (expr.index) expression(expr.index); emit({ op: 'LOAD', name: expr.name, indexed: !!expr.index, line }); }
+    if (expr.kind === 'variable') { check(expr.name, line); if (expr.index) expression(expr.index); emit({ op: 'LOAD', name: storageName(expr.name), indexed: !!expr.index, line }); }
+    if (expr.kind === 'call') {
+      const fn = functionMap.get(expr.name);
+      if (symbols.has(expr.name) || objects.has(expr.name)) throw new Error(`第 ${line} 行：${expr.name} 是局部变量，不能作为函数调用`);
+      if (!fn) throw new Error(`第 ${line} 行：函数 ${expr.name} 未定义`);
+      if (fn.name === 'main') throw new Error(`第 ${line} 行：不能调用入口函数 main`);
+      if (expr.args.length !== fn.parameters.length) throw new Error(`第 ${line} 行：函数 ${expr.name} 需要 ${fn.parameters.length} 个参数，实际传入 ${expr.args.length} 个`);
+      expr.args.forEach(expression);
+      const call: Instruction = { op: 'CALL', name: fn.name, line };
+      emit(call); calls.get(currentFunction)!.push(call);
+    }
     if (expr.kind === 'unary') { expression(expr.value); emit({ op: 'UNARY', operator: expr.op, line }); }
     if (expr.kind === 'binary') {
       expression(expr.left);
@@ -206,12 +257,10 @@ export function compile(source: string): Program {
     switch (stmt.kind) {
       case 'block': stmt.body.forEach(statement); break;
       case 'declare': {
-        if (symbols.has(stmt.name) || objects.has(stmt.name)) throw new Error(`第 ${line} 行：教学子集不支持同名变量或变量遮蔽：${stmt.name}`);
-        if (address + stmt.size * 4 > 0x2000) throw new Error('变量内存超过 4 KiB');
-        const variable = { name: stmt.name, size: stmt.size, address }; symbols.set(stmt.name, variable); variables.push(variable); address += stmt.size * 4;
+        allocate(stmt.name, stmt.size, line);
         for (let i = 0; i < stmt.size; i++) {
           if (stmt.size > 1) emit({ op: 'CONST', value: i, line });
-          expression(stmt.values[i] || { kind: 'number', value: 0, line }); emit({ op: 'STORE', name: stmt.name, indexed: stmt.size > 1, line });
+          expression(stmt.values[i] || { kind: 'number', value: 0, line }); emit({ op: 'STORE', name: storageName(stmt.name), indexed: stmt.size > 1, line });
         }
         break;
       }
@@ -228,8 +277,12 @@ export function compile(source: string): Program {
       }
       case 'assign':
         check(stmt.target.name, line); if (stmt.target.index) expression(stmt.target.index);
-        if (stmt.op !== '=') { expression(stmt.target); expression(stmt.value); emit({ op: 'BINARY', operator: stmt.op[0], line }); } else expression(stmt.value);
-        emit({ op: 'STORE', name: stmt.target.name, indexed: !!stmt.target.index, line }); break;
+        if (stmt.op !== '=') {
+          if (stmt.target.index) emit({ op: 'DUP', line });
+          emit({ op: 'LOAD', name: storageName(stmt.target.name), indexed: !!stmt.target.index, line });
+          expression(stmt.value); emit({ op: 'BINARY', operator: stmt.op[0], line });
+        } else expression(stmt.value);
+        emit({ op: 'STORE', name: storageName(stmt.target.name), indexed: !!stmt.target.index, line }); break;
       case 'if': {
         expression(stmt.condition); const branch = emit({ op: 'JZ', line }); statement(stmt.yes);
         if (stmt.no) { const end = emit({ op: 'JMP', line }); instructions[branch].target = instructions.length; statement(stmt.no); instructions[end].target = instructions.length; }
@@ -242,12 +295,34 @@ export function compile(source: string): Program {
         emit({ op: 'JMP', target: start, line }); instructions[branch].target = instructions.length; break;
       }
       case 'print': stmt.values.forEach(value => { expression(value); emit({ op: 'PRINT', line }); }); break;
-      case 'return': expression(stmt.value); emit({ op: 'HALT', line }); break;
+      case 'expression': expression(stmt.value); emit({ op: 'DROP', line }); break;
+      case 'return': expression(stmt.value); emit({ op: currentFunction === 'main' ? 'HALT' : 'RET', line }); break;
     }
   };
-  statement(ast);
-  emit({ op: 'CONST', value: 0, line: source.split('\n').length }); emit({ op: 'HALT', line: source.split('\n').length });
-  return { instructions, variables, source };
+  // Keep main at address 0x400000, independently of source definition order.
+  for (const definition of [...ast.filter(fn => fn.name === 'main'), ...ast.filter(fn => fn.name !== 'main')]) {
+    currentFunction = definition.name; symbols.clear(); objects.clear();
+    functionMap.get(currentFunction)!.entry = instructions.length;
+    for (const parameter of definition.parameters) allocate(parameter.name, 1, parameter.line, true);
+    // Arguments are evaluated left to right, then bound from the top of the operand stack.
+    for (const parameter of [...definition.parameters].reverse()) emit({ op: 'STORE', name: storageName(parameter.name), line: parameter.line });
+    statement(definition.body);
+    if (currentFunction === 'main') emit({ op: 'CONST', value: 0, line: definition.endLine });
+    emit({ op: currentFunction === 'main' ? 'HALT' : 'RET', line: definition.endLine });
+  }
+  const visiting = new Set<string>(), visited = new Set<string>();
+  const link = (name: string) => {
+    if (visited.has(name)) return;
+    visiting.add(name);
+    for (const call of calls.get(name)!) {
+      if (visiting.has(call.name!)) throw new Error(`第 ${call.line} 行：教学子集暂不支持递归调用：${name} → ${call.name}`);
+      call.target = functionMap.get(call.name!)!.entry;
+      link(call.name!);
+    }
+    visiting.delete(name); visited.add(name);
+  };
+  functions.forEach(fn => link(fn.name));
+  return { instructions, variables, functions, source };
 }
 
 export type Trace = { cycle: number; pc: number; text: string; detail: string };
@@ -256,14 +331,16 @@ export type ExecutionEvent = {
   memory?: { address: number; name: string; index: number; value: number; direction: 'read' | 'write' };
   branch?: { target: number; taken: boolean }; error?: string;
 };
+export type CallFrame = { name: string; returnPc: number | null; stackBase: number };
 export type Machine = {
   arch: Architecture; pc: number; cycles: number; registers: number[]; stack: number[]; memory: Record<string, number[]>;
+  frames: CallFrame[];
   flags: { Z: boolean; N: boolean; C: boolean; V: boolean }; output: number[]; halted: boolean; result?: number; error?: string;
   changedRegisters: number[]; changedMemory: string[]; trace: Trace[]; lastPc: number | null; reads: number; writes: number; branches: number;
   execution?: ExecutionEvent;
 };
 export function createMachine(program: Program, arch: Architecture): Machine {
-  return { arch, pc: 0, cycles: 0, registers: [0, 0, 0, 0, 0, 0, 0x8000, 0x8000], stack: [], memory: Object.fromEntries(program.variables.map(v => [v.name, Array(v.size).fill(0)])), flags: { Z: false, N: false, C: false, V: false }, output: [], halted: false, changedRegisters: [], changedMemory: [], trace: [], lastPc: null, reads: 0, writes: 0, branches: 0 };
+  return { arch, pc: 0, cycles: 0, registers: [0, 0, 0, 0, 0, 0, 0x8000, 0x8000], stack: [], frames: [{ name: 'main', returnPc: null, stackBase: 0 }], memory: Object.fromEntries(program.variables.map(v => [v.name, Array(v.size).fill(0)])), flags: { Z: false, N: false, C: false, V: false }, output: [], halted: false, changedRegisters: [], changedMemory: [], trace: [], lastPc: null, reads: 0, writes: 0, branches: 0 };
 }
 export function instructionText(instruction: Instruction, arch: Architecture): string {
   const arm = arch.startsWith('arm'), r = architectures[arch].registers;
@@ -280,13 +357,16 @@ export function instructionText(instruction: Instruction, arch: Architecture): s
     case 'JZ': return `${arm ? 'CBZ' : 'JZ'} ${arm ? r[0] + ', ' : ''}0x${(0x400000 + instruction.target! * 4).toString(16)}`;
     case 'JMP': return `${arm ? 'B' : 'JMP'} 0x${(0x400000 + instruction.target! * 4).toString(16)}`;
     case 'PRINT': return 'OUT stdout';
-    case 'HALT': return 'RET';
+    case 'CALL': return `${arm ? 'BL' : 'CALL'} ${instruction.name} ; 0x${(0x400000 + instruction.target! * 4).toString(16)}`;
+    case 'DROP': return `DROP ${r[0]}`;
+    case 'DUP': return `DUP ${r[0]}`;
+    case 'RET': case 'HALT': return 'RET';
   }
 }
 
 export function step(program: Program, previous: Machine): Machine {
   if (previous.halted) return previous;
-  const m: Machine = { ...previous, registers: [...previous.registers], stack: [...previous.stack], memory: { ...previous.memory }, flags: { ...previous.flags }, output: [...previous.output], changedRegisters: [], changedMemory: [], trace: [...previous.trace] };
+  const m: Machine = { ...previous, registers: [...previous.registers], stack: [...previous.stack], frames: [...previous.frames], memory: { ...previous.memory }, flags: { ...previous.flags }, output: [...previous.output], changedRegisters: [], changedMemory: [], trace: [...previous.trace] };
   const instruction = program.instructions[m.pc];
   if (!instruction) return { ...m, halted: true, error: '指令地址越界' };
   if (m.cycles >= 100000) return { ...m, halted: true, error: '执行超过 100,000 条指令，请检查循环条件' };
@@ -294,7 +374,7 @@ export function step(program: Program, previous: Machine): Machine {
   const execution: ExecutionEvent = { pc: oldPc, nextPc: m.pc, instruction, operands: [] };
   m.execution = execution;
   const setRegister = (index: number, value: number) => { m.registers[index] = value; if (previous.registers[index] !== value) m.changedRegisters.push(index); };
-  const pop = () => { const value = m.stack.pop(); if (value === undefined) throw new Error('表达式栈下溢'); return value; };
+  const pop = () => { if (m.stack.length <= m.frames.at(-1)!.stackBase) throw new Error('表达式栈下溢'); return m.stack.pop()!; };
   const push = (value: number) => { const n = value | 0; m.stack.push(n); setRegister(0, n); return n; };
   const flags = (value: number, raw = value) => { m.flags = { Z: value === 0, N: value < 0, C: raw > 0xffffffff || raw < 0, V: raw > 2147483647 || raw < -2147483648 }; };
   const indexFor = (name: string, indexed?: boolean) => {
@@ -334,6 +414,27 @@ export function step(program: Program, previous: Machine): Machine {
       case 'JZ': { const value = pop(); execution.operands = [value]; execution.branch = { target: instruction.target!, taken: value === 0 }; flags(value); if (value === 0) { m.pc = instruction.target!; m.branches++; } detail = value === 0 ? '条件为假，跳转至目标指令' : '条件为真，继续执行'; break; }
       case 'JMP': execution.branch = { target: instruction.target!, taken: true }; m.pc = instruction.target!; m.branches++; detail = '无条件跳转'; break;
       case 'PRINT': { const value = pop(); execution.operands = [value]; m.output.push(value); detail = `标准输出：${value}`; break; }
+      case 'CALL': {
+        const fn = program.functions.find(item => item.name === instruction.name)!;
+        const stackBase = m.stack.length - fn.parameters.length;
+        if (stackBase < m.frames.at(-1)!.stackBase) throw new Error('函数调用参数栈下溢');
+        execution.operands = m.stack.slice(stackBase);
+        for (const variable of program.variables.filter(item => item.functionName === fn.name)) m.memory[variable.name] = Array(variable.size).fill(0);
+        m.frames.push({ name: fn.name, returnPc: m.pc, stackBase });
+        m.pc = instruction.target!; m.branches++;
+        execution.branch = { target: m.pc, taken: true };
+        detail = `调用 ${fn.name}(${execution.operands.join(', ')})，保存返回地址`; break;
+      }
+      case 'RET': {
+        const frame = m.frames.at(-1)!;
+        if (m.stack.length <= frame.stackBase) throw new Error(`函数 ${frame.name} 结束时未返回整数值`);
+        const value = pop(); m.stack.length = frame.stackBase; m.frames.pop();
+        m.pc = frame.returnPc!; m.branches++; execution.result = push(value);
+        execution.branch = { target: m.pc, taken: true };
+        detail = `${frame.name} 返回 ${value} → ${m.frames.at(-1)!.name}`; break;
+      }
+      case 'DROP': execution.operands = [pop()]; detail = '丢弃未使用的函数返回值'; break;
+      case 'DUP': { const value = pop(); push(value); execution.result = push(value); detail = `保留数组下标 ${value}`; break; }
       case 'HALT': m.result = pop(); execution.result = m.result; setRegister(0, m.result); m.halted = true; detail = `程序结束，返回值 ${m.result}`; break;
     }
     setRegister(7, 0x8000 - m.stack.length * (architectures[m.arch].bits / 8));
