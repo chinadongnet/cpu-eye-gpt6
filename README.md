@@ -81,16 +81,27 @@ npm run dev
 
 ## 支持的语言范围
 
-入口为 `int main()` 或 `int main(void)`。支持：
+以下范围按 [src/engine.ts](src/engine.ts) 的实际解析与执行规则整理。适合整数算法、循环、数组、非递归函数调用和基础对象成员的教学演示。
 
-- 返回 int 的普通函数定义、int / bool 按值参数、无参函数、嵌套和重复调用、表达式及独立语句中的函数调用。
-- `int` / `bool` 变量、固定长度数组（1–128 项）、整数初始化列表。
-- 在 main 前定义基础 `class` / `struct`，声明对象并通过 `a.x` 读写 public 数据成员，支持成员数组。
-- 普通赋值、`+= -= *= /=`、后置 `++ --`。
-- `+ - * / %`、比较、`&& || !` 短路逻辑、`& | ^ ~ << >>`。
-- `if / else`、`while`、具有完整初始化/条件/更新部分的 `for`。
-- `std::cout << 整数表达式`、`std::endl`、`return`。
-- 行注释、块注释、预处理行忽略、可选 `using namespace std;`。
+### 已支持
+
+| 类别 | 支持范围 |
+| --- | --- |
+| 程序入口 | `int main()`、`int main(void)`；main 没有显式 return 时返回 0 |
+| 普通函数 | **返回类型为 int**；int / bool 按值参数、无参函数、嵌套调用、重复调用、提前返回 |
+| 函数调用位置 | 初始化、赋值、条件、运算、数组下标、输出、return，以及独立的 `func();` 语句 |
+| 变量 | 函数内的 int / bool；例如 `int x;`、`int x = 3;`；支持 true / false |
+| 数组 | 一维固定长度数组，长度为 **1–128 的整数字面量**；下标读写、整数表达式初始化列表 |
+| 赋值 | `=`、`+=`、`-=`、`*=`、`/=` |
+| 自增自减 | 独立的后置语句 `i++;`、`i--;`，以及 for 更新部分 |
+| 运算 | 算术、比较、逻辑、位运算、移位、一元正负、括号及运算符优先级；逻辑与/或支持短路 |
+| 控制流 | `if / else`、`else if`、`while`、初始化/条件/更新三部分完整的 for |
+| 基础类与结构体 | 使用前在顶层定义 class / struct；int / bool 数据成员、成员数组、多个独立对象、public 成员读写 |
+| 对象声明与访问 | `A a;`、`A a{};`、`a.x`、`a.data[i]`；识别 public/private/protected 并检查访问权限 |
+| 输出 | `std::cout << 整数表达式`，支持链式输出；也接受 cout、std::endl / endl |
+| 其他 | 行注释、块注释、顶层 `using namespace std;`；预处理行仅忽略 |
+
+支持的运算符：`+ - * / %`、`== != < > <= >=`、`&& || !`、`& | ^ ~ << >>`，以及一元 `+ -`。
 
 示例：
 
@@ -107,7 +118,7 @@ int main() {
 }
 ```
 
-每条声明一个变量；变量名在同一函数内唯一，不同函数可使用同名参数或局部变量。教学实现采用函数内平坦符号表，未提供 C++ 块级作用域；未初始化的变量默认置零。`bool` 目前作为 int 存储，不执行原生 bool 转换。`cout` 以整数输出事件展示，`endl` 被接受但不保留原生流的空格/换行格式。预处理行只是忽略，不执行宏或加载头文件。
+局部变量每条声明一个；类/结构体中的数据成员允许 `int x, y;`。其他语义差异见下文“与标准 C/C++ 的差异”。
 
 ### 普通函数
 
@@ -147,7 +158,133 @@ int main() {
 
 成员按声明顺序展开为 `a.x`、`a.y` 等独立存储项，出现在指令、变量、内存和写入高亮中。示例中地址分别为 `0x1000`、`0x1004`。每个成员元素占 4 字节，包括 bool；空对象预留 4 字节但没有可展示成员。这是教学布局，不模拟原生 C++ ABI。对象成员与其他变量一样默认置零，区别于原生 C++ 未初始化成员的语义。
 
-不支持递归、函数原型、函数重载、void 返回类型、指针、引用、构造/析构函数、成员函数、继承、嵌套对象、对象数组、对象复制、类内成员初始化、非空对象初始化列表、STL、字符串、浮点数、break/continue、前置自增、逗号表达式以及完整 C++ 类型系统。编译器对不支持语法给出诊断。
+### 当前不支持
+
+| 类别 | 不支持的内容 |
+| --- | --- |
+| 其他类型 | char、short、long、unsigned、float、double、字符/字符串字面量、枚举等 |
+| 声明形式 | 全局变量、static、const、auto、typedef；局部一次声明多个变量，如 `int a, b;` |
+| 初始化形式 | `int x(3);`、`int x{3};` 等直接初始化；对象的非空初始化列表 |
+| 函数特性 | **递归及间接递归**、函数原型、重载、默认参数、可变参数、函数指针、Lambda |
+| 函数类型 | void / bool 等非 int 返回类型；数组、对象、指针、引用参数 |
+| 指针与动态内存 | 指针、引用、取地址、解引用、new/delete、malloc/free |
+| 数组扩展 | 多维数组、变长数组、自动推导长度 `int a[] = {...};`、对象数组 |
+| 类的高级特性 | 成员函数、构造/析构、继承、多态、嵌套对象、对象复制、类内成员初始化 |
+| 控制流扩展 | break、continue、switch、do/while、goto、范围 for、省略子句的 `for(;;)` |
+| 表达式扩展 | `?:`、逗号表达式、赋值表达式、类型转换、sizeof、`%=` 和位运算复合赋值 |
+| 自增表达式 | `++i`、`--i`、`int x = i++;`、`return i++;` |
+| 一般表达式语句 | `1 + 2;`、空语句 `;`；独立函数调用语句可以使用 |
+| 输入和标准库 | cin、printf/scanf、文件操作、STL、vector、string、标准库算法等 |
+| 其他语言与工程能力 | 自定义 namespace、模板、异常处理、宏展开、条件编译、实际加载头文件、多文件编译和链接 |
+
+几个容易混淆的写法：
+
+```cpp
+i++;                    // 支持：独立后置自增
+int x = i++;            // 不支持：将自增作为表达式
+
+int a = 1;
+int b = 2;              // 支持：分别声明
+int a = 1, b = 2;       // 不支持：局部多变量声明
+
+struct A { int x, y; }; // 支持：类/结构体内可声明多个数据成员
+A a;                    // 支持：通过类型名声明对象
+struct A a;             // 不支持：这种 C 风格声明写法
+```
+
+上述片段用于对比语法，不能作为一个完整程序直接运行。
+
+### 与标准 C/C++ 的差异
+
+- **函数内是平坦作用域**：不同函数可有同名参数或局部变量；同一函数内，即使位于不同 `{}` 中，也不能重复声明同名变量。块内声明在后续编译的语句中仍可见，未提供块级作用域。
+- **未初始化数据默认置零**：包括局部变量和对象成员；被调函数每次进入时重新初始化其独立数据区。
+- **bool 暂时按 int 存储和运算**：不执行原生 bool 转换；`bool b = 7; return b;` 的结果是 7。
+- **int 始终为有符号 32 位**：选择 64 位 CPU 模型也不改变 int 宽度；溢出按补码截断。
+- **整数字面量范围为 0–2147483647**：支持十进制和十六进制，负数由一元负号构成。直接写 `-2147483648` 也会被拒绝，因为先检查正数字面量；二进制、八进制的原生字面量语义及整数后缀不在支持范围内。
+- **函数定义可放在调用之后**：编译器统一链接，不要求原生 C++ 的前置声明；参数固定从左到右求值。
+- **缺少返回值会报错**：非 main 函数执行到末尾而未返回整数时报告运行错误；main 隐式返回 0。
+- **预处理行仅忽略**：`#include` 不加载头文件，`#define` 不定义宏，`#if` 不控制代码是否参与编译；cout 是内置输出处理。
+- **输出为整数事件**：cout 不提供完整流语义，endl 被接受但不保留原生输出流的换行格式。
+- **类型检查仍有宽松之处**：实测数组名直接用于整数表达式会取首元素（如 `int a[2] = {3, 4}; return a;` 返回 3），标量的 `a[0]` 也会被接受。这些是当前实现的宽松行为，不能作为标准 C/C++ 合法性的判定，也不表示支持数组到指针转换。
+
+### 运行限制与诊断
+
+| 项目 | 限制或行为 |
+| --- | --- |
+| 源码长度 | 最多 30,000 字符 |
+| 数组长度 | 每个数组 1–128 项，须使用整数字面量 |
+| 模拟数据区 | 全部函数的参数、变量、数组和对象存储合计最多 4 KiB |
+| 执行预算 | 每次最多 100,000 条教学指令 |
+| 移位 | 位数须在 0–31 内 |
+| 运行错误 | 数组越界、除零、非法移位、缺少函数返回值或超出执行预算时停止 |
+| 编译诊断 | 包括语法错误、未声明变量、未定义函数、参数数量不匹配、重复声明、成员访问权限及递归调用 |
+
+## 技术架构与编译入口
+
+### 哪个文件负责编译？
+
+**用户输入的 C++ 子集代码由 [src/engine.ts](src/engine.ts) 中的 `compile(source: string): Program` 编译。** 词法分析器 `tokenize()`、语法分析器 `Parser`、IR 生成、符号检查、模拟数据地址分配和函数调用目标链接都在这个文件中。
+
+页面上的“编译”按钮和 Ctrl / Cmd + Enter 调用 [src/App.tsx](src/App.tsx) 的 `build()`，再调用 `compile(source)`；成功后保存 Program，并通过 `createMachine(program, arch)` 初始化机器状态。编辑器的 `Highlight` 仅用于语法着色。
+
+项目使用 **React 19 + TypeScript + Vite 6**。`npm run build` 执行发布检查、TypeScript 类型检查和 Vite 网页打包，生成 `dist/` 静态资源；用户代码的编译与执行发生在浏览器中的教学引擎内。两者各自处理网页工程和编辑器内的 C++ 源码。
+
+### 技术架构图
+
+下图为实际模块及数据流，GitHub 可直接渲染 Mermaid：
+
+```mermaid
+flowchart TB
+    Entry["src/main.tsx<br/>React 应用入口"] --> App["src/App.tsx<br/>源码编辑、操作调度、React 状态"]
+    Examples["src/examples.ts<br/>内置源码与结果断言"] --> App
+
+    subgraph Engine["src/engine.ts · 浏览器内教学引擎"]
+        Compile["compile(source)<br/>编译入口"] --> Tokens["tokenize()<br/>带源码行号的 Token"]
+        Tokens --> AST["Parser.parse()<br/>函数、语句、表达式 AST"]
+        AST --> IR["IR 生成与符号检查<br/>数据地址分配、调用目标链接"]
+        IR --> Program["Program<br/>instructions / variables / functions / source"]
+        Program --> Init["createMachine(program, arch)<br/>初始化或重置"]
+        Init --> Machine["Machine 状态快照<br/>PC、寄存器、内存、求值栈、调用帧<br/>output、trace、execution"]
+        Program --> Step["step(program, previous)<br/>执行一条栈式 IR 指令"]
+        Machine -->|previous| Step
+        Step -->|新快照及 ExecutionEvent| Machine
+    end
+
+    App -->|build 调用，传入 source| Compile
+    App -->|单步或运行定时器| Step
+    App -->|重置或切换架构| Init
+    Program -->|保存编译结果| App
+    Machine -->|setMachine 更新状态| App
+
+    subgraph Views["React 可视化组件"]
+        Diagram["src/CpuDiagram.tsx<br/>详细 CPU 图、总线、数据内存"]
+        Diagram --> Stream["src/InstructionStream.tsx<br/>指令流、源码行、PC / IR"]
+        Diagram --> Simple["src/SimpleCpu.tsx<br/>简单 CPU 图与执行动画"]
+        Diagram --> Stack["src/StackMemory.tsx<br/>调用链、当前函数数据、求值栈"]
+        Panels["src/App.tsx 内的面板<br/>源码定位、寄存器、变量、控制台、轨迹、验证"]
+    end
+
+    App -->|Program / Machine / running / dirty| Diagram
+    App --> Panels
+```
+
+`ExecutionEvent` 保存在 `Machine.execution` 中，包含本步指令、执行前后 PC、操作数、结果，以及可选的内存访问、分支和错误信息。组件读取实际执行快照来更新高亮与连线。`instructionText(instruction, arch)` 将 IR 映射为架构风格的展示文本；切换架构继续复用同一份 Program。
+
+### 编译与执行职责
+
+| 位置 | 职责 |
+| --- | --- |
+| `src/engine.ts` → `tokenize()` | 扫描标识符、数字、运算符和分隔符，保留行号，跳过注释和预处理行 |
+| `src/engine.ts` → `Parser` | 解析顶层类与函数、参数、语句和表达式，形成 AST；通过优先级处理表达式 |
+| `src/engine.ts` → `compile()` | 按函数管理符号，展开对象成员，分配数据地址，生成栈式 IR，填充分支和调用目标，拒绝递归调用；main 的入口保持为首条指令 |
+| `src/engine.ts` → `createMachine()` | 创建寄存器、数据内存、空求值栈及 main 调用帧 |
+| `src/engine.ts` → `step()` | 执行一条 IR，处理运算、访存、跳转、CALL / RET、输出和错误，返回新 Machine 快照 |
+| `src/engine.ts` → `run()` | 从初始机器开始反复调用 step 直到停止，供引擎测试等场景使用 |
+| `src/engine.ts` → `architectures` / `instructionText()` | 定义模型寄存器名称与位宽，生成教学汇编文本 |
+| `src/App.tsx` → `build()` / `singleStep()` / `play()` | 连接编辑器与引擎；页面连续运行由定时器逐次调用 step，便于观察和暂停 |
+| `src/examples.ts` → `validateExample()` | 对原始内置示例的变量、输出和返回值进行预期断言 |
+
+IR 包括 `CONST / LOAD / STORE`、`BINARY / UNARY`、`JZ / JMP`、`CALL / RET`、`DROP / DUP`、`PRINT / HALT`。表达式通过求值栈传递操作数；函数调用通过独立调用帧记录返回目标和调用方的求值栈边界。
 
 ## CPU 模型边界
 
@@ -210,11 +347,15 @@ Vite 已设置 `base: './'`，支持子路径部署。无后端、数据库或 A
 ## 代码结构
 
 ```text
+src/main.tsx        React 应用入口
 src/engine.ts       解析、编译、CPU 状态、单步执行、汇编映射
 src/examples.ts     六个示例与结果断言
-src/App.tsx         工作台与交互
+src/App.tsx         工作台、源码编辑、编译与运行调度、状态管理
 src/CpuDiagram.tsx  CPU 结构、指令/地址/执行快照可视化
+src/InstructionStream.tsx  统一指令流、PC / IR 与源码行联动
+src/SimpleCpu.tsx   简单 CPU 模型与执行动画
 src/StackMemory.tsx 教学调用链、当前函数参数/局部数据和临时求值栈
+src/Changelog.tsx   从 CHANGELOG.md 与 package.json 读取更新日志和版本
 src/cpu-diagram.css CPU 示意图与总线样式
 src/workbench.css   桌面单屏布局、面板滚动与紧凑样式
 src/styles.css      主题、动画与响应式布局
